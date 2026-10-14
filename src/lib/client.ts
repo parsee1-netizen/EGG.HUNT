@@ -1,4 +1,11 @@
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+let roleHint: "player" | "business" | null = null;
+
+/** The shell sets this before a page fetches, so a stale cookie can be corrected once. */
+export function setRoleHint(role: "player" | "business") {
+  roleHint = role;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: {
@@ -14,6 +21,19 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw error;
   }
   return body as T;
+}
+
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    return await request<T>(path, init);
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (roleHint && (status === 401 || status === 403) && path !== "/api/session") {
+      await request("/api/session", { method: "POST", body: JSON.stringify({ role: roleHint }) });
+      return await request<T>(path, init);
+    }
+    throw err;
+  }
 }
 
 export function toast(message: string) {

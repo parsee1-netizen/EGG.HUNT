@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/client";
+import { api, setRoleHint } from "@/lib/client";
 import type { Session } from "@/lib/types";
 
 interface Config {
@@ -92,10 +92,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     router.push(role === "business" ? "/business" : "/");
   }
 
+  const wantRole = wantBusiness ? "business" : "player";
+  if (!onAuth) setRoleHint(wantRole);
   const roleReady =
     onAuth ||
-    !session ||
-    (config?.allowRoleSwitch ? (wantBusiness ? session.role === "business" : session.role === "player") : true);
+    Boolean(
+      session &&
+        config &&
+        (!config.allowRoleSwitch || session.role === wantRole),
+    );
   const blocked =
     session && config && !config.allowRoleSwitch && wantBusiness && session.role !== "business" && session.userId !== "";
 
@@ -127,7 +132,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </header>
         )}
         <main className="stage-main">
-          {!session || !roleReady ? (
+          {!roleReady ? (
             <div className="screen">
               <p className="sub">Loading EggDrop…</p>
             </div>
