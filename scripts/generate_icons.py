@@ -91,6 +91,9 @@ def main() -> None:
     write_png(out / "icon-192.png", 192, draw(192, 0))
     write_png(out / "icon-512.png", 512, draw(512, 0))
     write_png(out / "icon-maskable.png", 512, draw(512, 0.08))
+    apple = draw(180, 0)
+    write_png(out / "apple-touch-icon.png", 180, apple)
+    write_png(root / "public" / "apple-touch-icon.png", 180, apple)
 
 
 if __name__ == "__main__":

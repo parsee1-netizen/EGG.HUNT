@@ -34,8 +34,8 @@ Copy `.env.example` to `.env.local` when you connect Supabase or Stripe. Leave t
 
 ## How the pieces behave
 
-- **Camera.** The hunt and scan screens call `getUserMedia` with `facingMode: "environment"` (rear camera). The egg is an overlay. If the browser has no camera, the street illustration stays behind the overlay and the chip says "Camera off".
-- **Location.** "Use my GPS" watches `navigator.geolocation`. The server only creates a claim when the reported point is within **50 m** of that egg. The demo spot is the fallback so the seed is playable on a laptop.
+- **Camera.** Hunt and scan stay on the illustrated street until you tap **Start camera**. That tap is what calls `getUserMedia` (`facingMode: "environment"`, video `playsinline`, `muted`, and `autoplay`), which is what iOS Safari requires before it will show the permission prompt. The egg is an overlay. If you deny the camera, the screen says so and offers **Try camera again**. With no camera at all, the chip says "Camera off" and you can still tap an egg or type a code.
+- **Location.** The map opens on the demo spot and does not ask for GPS until you tap **Use my GPS**. If you deny it, or the browser has no location, a note explains that and the demo spot stays on so the seed is still playable. After a grant, the app watches `navigator.geolocation`. The server only creates a claim when the reported point is within **50 m** of that egg.
 - **Map.** Leaflet with [OpenStreetMap](https://www.openstreetmap.org/copyright) tiles.
 - **Money.** A drop of N eggs is `N × $0.05`. The slider starts at 10 eggs because Stripe's card minimum is $0.50. With no `STRIPE_SECRET_KEY`, confirm runs the same `activateCampaign` path the webhook uses and does not charge a card.
 - **Codes.** Each claim stores a human code (`EGG-XXXX-XX`) and a random token in the QR. Redeeming either marks the claim redeemed and inserts one redemption row. The unique constraint on `redemptions.claim_id` blocks a second use.
@@ -98,6 +98,31 @@ The local JSON database is only for development. On Vercel the filesystem is eph
 | `npm test` | Seed counts, the 50 m gate, one-time redeem, and paid activation |
 | `npm run icons` | Redraw the PWA icons |
 
+## iPhone (Safari and the Home Screen)
+
+The rear camera and GPS need a secure context. `http://localhost` counts on the computer running the dev server. A phone cannot use the camera against `http://192.168.x.x` — Safari blocks `getUserMedia` on plain HTTP.
+
+Serve the app over HTTPS, then open that URL in Safari:
+
+```bash
+npm run dev
+
+# Cloudflare Tunnel
+cloudflared tunnel --url http://localhost:3000
+
+# or a temporary https URL
+npx localtunnel --port 3000
+```
+
+A Vercel preview is the other HTTPS option. Push this branch and open the preview URL the project gives you. This repo's automation does not deploy one for you. Previews are already `https://`, so the camera prompt works there the same way as through a tunnel.
+
+On the phone:
+
+1. Map stays on the demo spot until you tap **Use my GPS**. Denying location leaves the demo spot in place and explains how to allow it.
+2. On Hunt or Scan, tap **Start camera**. The prompt appears after that tap. If you deny it, EggDrop says the camera is off and shows **Try camera again**. The video element is inline, muted, and autoplaying so iOS does not jump into fullscreen.
+3. Scan reads the QR in the page with jsQR. The code field under the viewfinder is the fallback when the camera is blocked.
+4. Share → **Add to Home Screen**. The icon is `apple-touch-icon.png` (180×180). `apple-mobile-web-app-capable` and a standalone manifest hide Safari's chrome, and `black-translucent` plus `viewport-fit=cover` let the cream background run under the status bar. Padding uses `env(safe-area-inset-*)` so the notch and home bar do not cover the header, the camera controls, or the tab bar. Open the home-screen icon and hunt from there.
+
 ## PWA
 
-`public/manifest.webmanifest` and `public/sw.js` make the app installable. The service worker is registered in production only, and it never caches `/api`.
+`public/manifest.webmanifest` and `public/sw.js` make the app installable. The manifest asks for a portrait standalone window. The service worker is registered in production only, and it never caches `/api`.

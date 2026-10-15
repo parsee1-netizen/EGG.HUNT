@@ -9,13 +9,15 @@ export const metadata: Metadata = {
   description: "Find AR eggs near local businesses and redeem the reward inside.",
   applicationName: "EggDrop",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "EggDrop" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "EggDrop" },
+  formatDetection: { telephone: false },
+  other: { "mobile-web-app-capable": "yes" },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/icons/icon-192.png",
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

@@ -52,20 +52,25 @@ export default function MapPage() {
         {fix ? `${nearby.length} eggs within 400 m` : "Finding eggs…"}
       </p>
       <div className="loc-row">
-        <p>
-          {fix?.source === "gps" ? "Live GPS" : "Demo spot by the cafe"}
-          {gpsError && fix?.source === "demo" ? ` · ${gpsError}` : ""}
-        </p>
+        <p>{fix?.source === "gps" ? "Live GPS" : "Demo spot by the cafe"}</p>
         {fix?.source === "gps" ? (
           <button type="button" className="btn ghost slim" onClick={useDemo}>
             Demo spot
           </button>
         ) : (
           <button type="button" className="btn ghost slim" onClick={useGps}>
-            Use my GPS
+            {gpsError ? "Try GPS again" : "Use my GPS"}
           </button>
         )}
       </div>
+      {gpsError ? (
+        <div className="note" role="status">
+          <b>Still on the demo spot</b>
+          <p className="sub" style={{ margin: "4px 0 0" }}>
+            {gpsError}
+          </p>
+        </div>
+      ) : null}
       {fix ? (
         <MapView
           center={fix}

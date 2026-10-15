@@ -2,58 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { cameraActionLabel, cameraHelp, cameraStatusLabel } from "@/lib/camera";
 import { api, toast } from "@/lib/client";
 import { formatDistance } from "@/lib/format";
 import { CATCH_RADIUS_M } from "@/lib/geo";
+import { useRearCamera } from "@/lib/use-camera";
 import { usePlayerFix } from "@/lib/use-position";
 import type { Claim, NearbyEgg } from "@/lib/types";
 
 export default function HuntPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const camera = useRearCamera(videoRef);
   const [demo, setDemo] = useState<{ lat: number; lng: number } | null>(null);
   const { fix } = usePlayerFix(demo);
   const [eggs, setEggs] = useState<NearbyEgg[]>([]);
-  const [camOn, setCamOn] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api<{ demoLocation: { lat: number; lng: number } }>("/api/config")
       .then((config) => setDemo(config.demoLocation))
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    let stream: MediaStream | null = null;
-    let cancel = false;
-    (async () => {
-      try {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          });
-        } catch {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
-        }
-        if (cancel) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        video.srcObject = stream;
-        await video.play().catch(() => {});
-        if (!cancel) setCamOn(true);
-      } catch {
-        if (!cancel) setCamOn(false);
-      }
-    })();
-    return () => {
-      cancel = true;
-      stream?.getTracks().forEach((track) => track.stop());
-      video.srcObject = null;
-    };
   }, []);
 
   useEffect(() => {
@@ -90,6 +59,8 @@ export default function HuntPage() {
         ? `Nearest egg is ${formatDistance(nearest.distanceM)} away — get within ${CATCH_RADIUS_M} m`
         : "No eggs left nearby";
 
+  const help = cameraHelp(camera.phase, "hunt");
+
   return (
     <div className="screen bleed">
       <div className="cam" aria-hidden>
@@ -97,8 +68,16 @@ export default function HuntPage() {
         <div className="bld" style={{ left: "36%", width: "22%", height: "22%", background: "#c98f6e" }} />
         <div className="bld" style={{ left: "62%", width: "34%", height: "34%", background: "#9f8a75" }} />
       </div>
-      <video ref={videoRef} className="ar-video" style={{ opacity: camOn ? 1 : 0 }} autoPlay playsInline muted />
-      <div className={camOn ? "live on" : "live"}>{camOn ? "Live camera" : "Camera off"}</div>
+      <video
+        ref={videoRef}
+        className="ar-video"
+        style={{ opacity: camera.phase === "live" ? 1 : 0 }}
+        autoPlay
+        playsInline
+        muted
+        disablePictureInPicture
+      />
+      <div className={camera.phase === "live" ? "live on" : "live"}>{cameraStatusLabel(camera.phase)}</div>
       {target ? <div className="reticle" /> : null}
       {target ? (
         <button type="button" className="float" onClick={catchEgg} disabled={busy} aria-label="Catch egg">
@@ -107,9 +86,19 @@ export default function HuntPage() {
       ) : null}
       <div className="arui">
         <div className="pill">{pill}</div>
-        <button type="button" className="btn ghost" onClick={() => router.push("/")}>
-          ← Back to map
-        </button>
+        <div className="ar-actions">
+          {camera.phase !== "live" ? (
+            <div className="cam-gate" role="status">
+              <p>{help}</p>
+              <button type="button" className="btn" onClick={camera.start} disabled={camera.phase === "starting"}>
+                {cameraActionLabel(camera.phase)}
+              </button>
+            </div>
+          ) : null}
+          <button type="button" className="btn ghost" onClick={() => router.push("/")}>
+            ← Back to map
+          </button>
+        </div>
       </div>
     </div>
   );

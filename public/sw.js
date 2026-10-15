@@ -1,4 +1,4 @@
-const CACHE = "eggdrop-v1";
+const CACHE = "eggdrop-v2";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
