@@ -11,6 +11,7 @@ import {
   classifyCameraError,
 } from "../src/lib/camera";
 import { decodeQrImage } from "../src/lib/qr-scan";
+import { isHttpsRequest } from "../src/lib/session";
 import { describeGpsError } from "../src/lib/use-position";
 
 test("camera stays idle until a tap, and denial has a retry", () => {
@@ -27,6 +28,15 @@ test("camera stays idle until a tap, and denial has a retry", () => {
   assert.match(cameraHelp("insecure", "scan"), /HTTPS/);
   assert.equal(cameraStatusLabel("live"), "Live camera");
   assert.equal(cameraStatusLabel("denied"), "Camera blocked");
+});
+
+test("the demo session cookie is Secure only on HTTPS", () => {
+  assert.equal(isHttpsRequest(new Request("http://127.0.0.1:3000/api/session")), false);
+  assert.equal(isHttpsRequest(new Request("https://eggdrop.example/api/session")), true);
+  assert.equal(
+    isHttpsRequest(new Request("http://localhost:3000/api/session", { headers: { "x-forwarded-proto": "https" } })),
+    true,
+  );
 });
 
 test("a denied location falls back to a plain-language note", () => {
@@ -78,6 +88,7 @@ test("the phone shell uses dynamic viewport, safe areas, and 16px inputs", () =>
   assert.match(layout, /viewportFit:\s*"cover"/);
   assert.match(layout, /black-translucent/);
   assert.match(layout, /apple-touch-icon\.png/);
+  assert.match(layout, /apple-mobile-web-app-capable/);
   assert.match(layout, /appleWebApp:\s*\{[^}]*capable:\s*true/);
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.orientation, "portrait");

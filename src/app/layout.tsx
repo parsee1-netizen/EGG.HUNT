@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "EggDrop" },
   formatDetection: { telephone: false },
-  other: { "mobile-web-app-capable": "yes" },
+  other: { "apple-mobile-web-app-capable": "yes" },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

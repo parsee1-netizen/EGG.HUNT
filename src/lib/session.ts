@@ -98,14 +98,25 @@ export async function getSession(): Promise<Session> {
   return demoSession("player");
 }
 
-export async function setSessionCookie(session: Session) {
+/** Secure cookies are HTTPS-only. WebKit drops them on http://127.0.0.1, so follow the request. */
+export function isHttpsRequest(req: Request): boolean {
+  const forwarded = req.headers.get("x-forwarded-proto");
+  if (forwarded) return forwarded.split(",")[0].trim() === "https";
+  try {
+    return new URL(req.url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export async function setSessionCookie(session: Session, secure: boolean) {
   const jar = await cookies();
   jar.set(COOKIE, JSON.stringify(session), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
-    secure: process.env.NODE_ENV === "production",
+    secure,
   });
 }
 
@@ -125,11 +136,11 @@ export async function requireBusiness(): Promise<Session> {
   return session;
 }
 
-export async function ensureSession(): Promise<Session> {
+export async function ensureSession(req: Request): Promise<Session> {
   const session = await getSession();
   if (dataDriver() === "local") {
     const jar = await cookies();
-    if (!jar.get(COOKIE)) await setSessionCookie(session);
+    if (!jar.get(COOKIE)) await setSessionCookie(session, isHttpsRequest(req));
   }
   return session;
 }

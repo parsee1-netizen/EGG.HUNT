@@ -12,7 +12,7 @@ npm run seed
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). No API keys are required for the local demo.
+Open [http://localhost:3000](http://localhost:3000). No API keys are required for the local demo. The demo session cookie is marked Secure only when the site is actually served over HTTPS (a tunnel, or Vercel, which sends `x-forwarded-proto`). On `http://localhost` the cookie still sticks, including in iOS Safari.
 
 The header switches between **Player** and **Business**. On a fresh seed you are standing outside Bean There Cafe in Hayes Valley. One egg is 42 m away, so it shows up in the camera. An egg at 60 m stays on the map and stays out of the camera until you are within 50 m.
 
