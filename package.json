@@ -1,0 +1,39 @@
+{
+  "name": "eggdrop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EggDrop — AR egg hunt. Businesses hide GPS eggs; players catch them on camera and redeem a one-time reward.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "seed": "tsx scripts/seed.ts",
+    "icons": "python3 scripts/generate_icons.py",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.75.0",
+    "jsqr": "^1.4.0",
+    "leaflet": "^1.9.4",
+    "next": "^15.5.4",
+    "qrcode": "^1.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-leaflet": "^5.0.0",
+    "stripe": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.20",
+    "@types/node": "^22.18.8",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
