@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { CAFE_EGG, GARDEN_EGG, sameDesign } from "../src/lib/egg-design";
 import { CATCH_RADIUS_M, distanceM } from "../src/lib/geo";
 import { amountCents } from "../src/lib/pricing";
 import {
   CAFE_LOCATION,
   COFFEE_CODE,
   COOKIE_CODE,
+  GIFT_CODE,
   DEMO_PLAYER,
   HUNTABLE_DISTANCE_M,
   HUNTABLE_EGG_POS,
@@ -58,6 +60,7 @@ test("seed, catch radius, one-time redeem, and paid activation", async () => {
     inRange.map((egg) => egg.id),
     [IDS.huntableEgg],
   );
+  assert.ok(sameDesign(inRange[0].design, CAFE_EGG));
 
   await assert.rejects(
     () =>
@@ -158,4 +161,51 @@ test("seed, catch radius, one-time redeem, and paid activation", async () => {
   const wallet = await localStore.listClaimsForPlayer(IDS.player);
   assert.ok(wallet.some((item) => item.code === COFFEE_CODE));
   assert.ok(wallet.some((item) => item.id === claim.id && item.status === "redeemed"));
+  const coffeeCard = wallet.find((item) => item.code === COFFEE_CODE);
+  const giftCard = wallet.find((item) => item.code === GIFT_CODE);
+  const cookieCard = wallet.find((item) => item.code === COOKIE_CODE);
+  assert.ok(coffeeCard && sameDesign(coffeeCard.design ?? null, CAFE_EGG));
+  assert.ok(giftCard && sameDesign(giftCard.design ?? null, GARDEN_EGG));
+  assert.equal(cookieCard?.design ?? null, null);
+});
+
+test("a saved egg design shows up on nearby eggs, and a batch can override it", async () => {
+  const { localStore } = await import("../src/lib/db/local");
+  await localStore.reset();
+  const custom = {
+    baseColor: "#7C5CBF",
+    secondColor: "#F4A900",
+    pattern: "zigzag" as const,
+    shine: true,
+    badge: { kind: "text" as const, text: "BEAN" },
+  };
+  const saved = await localStore.saveEggDesign(IDS.cafe, custom);
+  assert.ok(saved && sameDesign(saved, custom));
+  const nearby = await localStore.listNearbyEggs(DEMO_PLAYER.lat, DEMO_PLAYER.lng, 1000);
+  assert.ok(nearby.length > 0);
+  assert.ok(nearby.every((egg) => sameDesign(egg.design, custom)));
+
+  const created = await localStore.createCampaign({
+    businessId: IDS.cafe,
+    name: "Override drop",
+    rewardType: "discount",
+    rewardLabel: "15% OFF",
+    rewardDetail: "Any coffee drink",
+    rewardTitle: "15% off",
+    radiusM: 400,
+    eggCount: 10,
+    eggDesign: GARDEN_EGG,
+  });
+  assert.ok(sameDesign(created.eggDesign, GARDEN_EGG));
+  await localStore.activateCampaign(created.id, null);
+  const mixed = await localStore.listNearbyEggs(CAFE_LOCATION.lat, CAFE_LOCATION.lng, 400);
+  const overrides = mixed.filter((egg) => sameDesign(egg.design, GARDEN_EGG));
+  const defaults = mixed.filter((egg) => sameDesign(egg.design, custom));
+  assert.equal(overrides.length, 10);
+  assert.ok(defaults.length > 0);
+
+  await assert.rejects(
+    () => localStore.saveEggDesign(IDS.cafe, { ...custom, badge: { kind: "logo", logo: "data:image/svg+xml,hi" } }),
+    (err: unknown) => (err as { code?: string }).code === "bad_design",
+  );
 });

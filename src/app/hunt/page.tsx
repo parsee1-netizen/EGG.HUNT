@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EggArt } from "@/components/EggArt";
 import { cameraActionLabel, cameraHelp, cameraStatusLabel } from "@/lib/camera";
 import { api, toast } from "@/lib/client";
 import { formatDistance } from "@/lib/format";
@@ -81,7 +82,7 @@ export default function HuntPage() {
       {target ? <div className="reticle" /> : null}
       {target ? (
         <button type="button" className="float" onClick={catchEgg} disabled={busy} aria-label="Catch egg">
-          <div className="e" />
+          <EggArt design={target.design} size={118} classicBand={!target.design} label="Egg" />
         </button>
       ) : null}
       <div className="arui">

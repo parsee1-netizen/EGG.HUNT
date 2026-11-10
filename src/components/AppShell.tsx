@@ -28,7 +28,7 @@ function navOn(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   if (href === "/hunt") return pathname === "/hunt" || pathname.startsWith("/crack");
   if (href === "/wallet") return pathname.startsWith("/wallet");
-  if (href === "/business") return pathname === "/business" || pathname.startsWith("/business/scan");
+  if (href === "/business") return pathname === "/business" || pathname.startsWith("/business/scan") || pathname.startsWith("/business/design");
   if (href === "/business/hide") return pathname.startsWith("/business/hide") || pathname.startsWith("/business/checkout");
   if (href === "/business/results") return pathname.startsWith("/business/results");
   return pathname === href;

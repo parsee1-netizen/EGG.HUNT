@@ -56,11 +56,16 @@ function profilesSql(rows: Profile[]): string {
   )};`;
 }
 
+function sqlJson(value: unknown): string {
+  if (value == null) return "null";
+  return `${sqlString(JSON.stringify(value))}::jsonb`;
+}
+
 function businessesSql(rows: Business[]): string {
-  return `insert into public.businesses (id, owner_id, name, address, lat, lng, created_at) values\n${values(
+  return `insert into public.businesses (id, owner_id, name, address, lat, lng, egg_design, created_at) values\n${values(
     rows.map(
       (row) =>
-        `${sqlString(row.id)}, ${sqlString(row.ownerId)}, ${sqlString(row.name)}, ${sqlString(row.address)}, ${row.lat}, ${row.lng}, ${sqlTime(row.createdAt)}`,
+        `${sqlString(row.id)}, ${sqlString(row.ownerId)}, ${sqlString(row.name)}, ${sqlString(row.address)}, ${row.lat}, ${row.lng}, ${sqlJson(row.eggDesign)}, ${sqlTime(row.createdAt)}`,
     ),
   )};`;
 }
@@ -258,6 +263,7 @@ async function pushSupabase(data: Database) {
     address: row.address,
     lat: row.lat,
     lng: row.lng,
+    egg_design: row.eggDesign,
     created_at: row.createdAt,
   })));
   await insertChunks(client, "campaigns", data.campaigns.map((row) => ({

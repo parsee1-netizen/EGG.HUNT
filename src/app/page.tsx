@@ -81,6 +81,7 @@ export default function MapPage() {
             id: egg.id,
             lat: egg.lat,
             lng: egg.lng,
+            design: egg.design,
             label: labeled.has(egg.id) ? `${formatDistance(egg.distanceM)} · ${shortName(egg.businessName)}` : undefined,
           }))}
           onEgg={(id) => {

@@ -4,18 +4,24 @@ import { useEffect, useMemo } from "react";
 import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { eggMarkup } from "@/lib/egg-svg";
 import type { MapEgg, MapProps } from "./map-types";
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
 }
 
-function eggIcon(label?: string) {
+function eggIcon(egg: MapEgg) {
+  const markup = eggMarkup(egg.design ?? null, {
+    id: `pin${egg.id.replace(/[^A-Za-z0-9]/g, "")}`,
+    detail: "mini",
+  });
+  const label = egg.label ? `<small>${escapeHtml(egg.label)}</small>` : "";
   return L.divIcon({
     className: "egg-pin",
-    html: `<div class="pin"><div class="e"></div>${label ? `<small>${escapeHtml(label)}</small>` : ""}</div>`,
-    iconSize: label ? [96, 64] : [36, 46],
-    iconAnchor: label ? [48, 40] : [18, 42],
+    html: `<div class="pin"><div class="egg-art pin-egg">${markup}</div>${label}</div>`,
+    iconSize: egg.label ? [104, 78] : [36, 48],
+    iconAnchor: egg.label ? [52, 46] : [18, 44],
   });
 }
 
@@ -54,7 +60,7 @@ export default function LeafletMap({
 }: MapProps) {
   const icons = useMemo(() => {
     const map = new Map<string, L.DivIcon>();
-    for (const egg of eggs) map.set(egg.id, eggIcon(egg.label));
+    for (const egg of eggs) map.set(egg.id, eggIcon(egg));
     return map;
   }, [eggs]);
 
@@ -81,7 +87,7 @@ export default function LeafletMap({
           <Marker
             key={egg.id}
             position={[egg.lat, egg.lng]}
-            icon={icons.get(egg.id) ?? eggIcon(egg.label)}
+            icon={icons.get(egg.id) ?? eggIcon(egg)}
             eventHandlers={onEgg ? { click: () => onEgg(egg.id) } : undefined}
           />
         ))}
