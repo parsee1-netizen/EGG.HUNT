@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import SoundToggle from "@/components/SoundToggle";
 import { api, setRoleHint } from "@/lib/client";
+import { bindInterfaceSounds } from "@/lib/sound";
 import type { Session } from "@/lib/types";
 
 interface Config {
@@ -75,6 +77,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [session, config, wantBusiness, onAuth]);
 
+  useEffect(() => bindInterfaceSounds(), []);
+
   useEffect(() => {
     const onToast = (event: Event) => {
       setToastMsg((event as CustomEvent<string>).detail);
@@ -112,13 +116,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className={`phone${hunt ? " hunt" : ""}`}>
         {hunt ? null : (
           <header className="top">
-            <div className="toggle">
-              <button type="button" className={!wantBusiness ? "on" : ""} onClick={() => switchSide("player")}>
-                🥚 Player
-              </button>
-              <button type="button" className={wantBusiness ? "on" : ""} onClick={() => switchSide("business")}>
-                🏪 Business
-              </button>
+            <div className="top-row">
+              <div className="toggle">
+                <button type="button" className={!wantBusiness ? "on" : ""} onClick={() => switchSide("player")}>
+                  🥚 Player
+                </button>
+                <button type="button" className={wantBusiness ? "on" : ""} onClick={() => switchSide("business")}>
+                  🏪 Business
+                </button>
+              </div>
+              <SoundToggle />
             </div>
             <div className="demo">
               {config?.driver === "supabase" ? "Supabase" : "Demo seed"} · ${price} an egg

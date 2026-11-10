@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EggArt } from "@/components/EggArt";
+import SoundToggle from "@/components/SoundToggle";
 import { cameraActionLabel, cameraHelp, cameraStatusLabel } from "@/lib/camera";
 import { api, toast } from "@/lib/client";
 import { formatDistance } from "@/lib/format";
@@ -64,6 +65,7 @@ export default function HuntPage() {
 
   return (
     <div className="screen bleed">
+      <SoundToggle className="hunt-toggle" />
       <div className="cam" aria-hidden>
         <div className="bld" style={{ left: "4%", width: "28%", height: "30%" }} />
         <div className="bld" style={{ left: "36%", width: "22%", height: "22%", background: "#3a342c" }} />
