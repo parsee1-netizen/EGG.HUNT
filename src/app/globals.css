@@ -31,7 +31,7 @@ body {
   font-size: 16px;
   touch-action: manipulation;
 }
-a { color: inherit; }
+a { color: inherit; touch-action: manipulation; }
 button, input, textarea, select { font: inherit; color: inherit; font-size: 16px; touch-action: manipulation; }
 .stage {
   height: 100dvh;

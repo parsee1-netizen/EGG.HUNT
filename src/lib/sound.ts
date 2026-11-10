@@ -9,6 +9,13 @@ const MASTER_GAIN = 0.34;
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let enabledCache: boolean | null = null;
+let resumeInFlight: Promise<void> | null = null;
+let audioCalls = 0;
+
+/** How many tones were actually started. Survives route changes with the context. */
+export function audioCallCount(): number {
+  return audioCalls;
+}
 
 function audioCtor(): typeof AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -42,25 +49,71 @@ export function setSoundEnabled(on: boolean): void {
   if (on) unlockAudio();
 }
 
-/** Create or resume the context. Call from a user gesture so iOS will play. */
+/**
+ * `playback` keeps UI sounds audible with the iPhone silent switch.
+ * Older WebKit builds omit audioSession; the assignment can also throw.
+ */
+function preferPlayback(): void {
+  if (typeof navigator === "undefined") return;
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (!session || session.type === "playback") return;
+  try {
+    session.type = "playback";
+  } catch {
+    /* unsupported */
+  }
+}
+
+function publishCalls(): void {
+  if (typeof window === "undefined") return;
+  (window as Window & { __eggdropAudioCalls?: number }).__eggdropAudioCalls = audioCalls;
+}
+
+/**
+ * One context for the whole app. Never closed on navigation — route changes
+ * must not drop a click that already started.
+ */
 export function unlockAudio(): AudioContext | null {
+  preferPlayback();
   const Ctor = audioCtor();
   if (!Ctor) return null;
-  if (!ctx) {
+  if (!ctx || ctx.state === "closed") {
     ctx = new Ctor();
     master = ctx.createGain();
     master.gain.value = MASTER_GAIN;
     master.connect(ctx.destination);
+    resumeInFlight = null;
   }
-  if (ctx.state === "suspended") void ctx.resume();
+  // resume() has to be *called* inside the gesture. Waiting for it comes later.
+  if (ctx.state === "suspended") void resumeContext(ctx);
   return ctx;
 }
 
-function output(): { ctx: AudioContext; master: GainNode } | null {
-  if (!soundEnabled()) return null;
+function resumeContext(audio: AudioContext): Promise<void> {
+  if (audio.state !== "suspended") return Promise.resolve();
+  if (!resumeInFlight) {
+    resumeInFlight = audio
+      .resume()
+      .then(async () => {
+        if (audio.state === "suspended") await audio.resume();
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        resumeInFlight = null;
+      });
+  }
+  return resumeInFlight;
+}
+
+function whenRunning(run: (audio: AudioContext, dest: GainNode) => void): void {
+  if (typeof window === "undefined" || !soundEnabled()) return;
   const audio = unlockAudio();
-  if (!audio || !master) return null;
-  return { ctx: audio, master };
+  if (!audio || !master) return;
+  const dest = master;
+  void resumeContext(audio).then(() => {
+    if (!soundEnabled() || audio.state !== "running") return;
+    run(audio, dest);
+  });
 }
 
 function haptic(pattern: number | number[]): void {
@@ -81,59 +134,61 @@ function tone(options: {
   attack?: number;
   delay?: number;
 }): void {
-  const bus = output();
-  if (!bus) return;
-  const { ctx: audio, master: dest } = bus;
-  const start = audio.currentTime + (options.delay ?? 0);
-  const osc = audio.createOscillator();
-  const gain = audio.createGain();
-  osc.type = options.type ?? "sine";
-  osc.frequency.setValueAtTime(options.freq, start);
-  if (options.endFreq != null) {
-    osc.frequency.exponentialRampToValueAtTime(Math.max(40, options.endFreq), start + options.dur);
-  }
-  const peak = Math.max(0.0002, options.peak);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(peak, start + (options.attack ?? 0.008));
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + options.dur);
-  osc.connect(gain);
-  gain.connect(dest);
-  osc.start(start);
-  osc.stop(start + options.dur + 0.02);
+  whenRunning((audio, dest) => {
+    const start = audio.currentTime + (options.delay ?? 0);
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    osc.type = options.type ?? "sine";
+    osc.frequency.setValueAtTime(options.freq, start);
+    if (options.endFreq != null) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, options.endFreq), start + options.dur);
+    }
+    const peak = Math.max(0.0002, options.peak);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peak, start + (options.attack ?? 0.008));
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + options.dur);
+    osc.connect(gain);
+    gain.connect(dest);
+    osc.start(start);
+    osc.stop(start + options.dur + 0.02);
+    audioCalls += 1;
+    publishCalls();
+  });
 }
 
 function noiseBurst(dur: number, peak: number, frequency: number): void {
-  const bus = output();
-  if (!bus) return;
-  const { ctx: audio, master: dest } = bus;
-  const length = Math.max(1, Math.floor(audio.sampleRate * dur));
-  const buffer = audio.createBuffer(1, length, audio.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < length; i++) {
-    const fade = 1 - i / length;
-    data[i] = (Math.random() * 2 - 1) * fade * fade;
-  }
-  const src = audio.createBufferSource();
-  src.buffer = buffer;
-  const filter = audio.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.value = frequency;
-  filter.Q.value = 0.7;
-  const gain = audio.createGain();
-  const start = audio.currentTime;
-  gain.gain.setValueAtTime(peak, start);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-  src.connect(filter);
-  filter.connect(gain);
-  gain.connect(dest);
-  src.start(start);
-  src.stop(start + dur + 0.02);
+  whenRunning((audio, dest) => {
+    const length = Math.max(1, Math.floor(audio.sampleRate * dur));
+    const buffer = audio.createBuffer(1, length, audio.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      const fade = 1 - i / length;
+      data[i] = (Math.random() * 2 - 1) * fade * fade;
+    }
+    const src = audio.createBufferSource();
+    src.buffer = buffer;
+    const filter = audio.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = frequency;
+    filter.Q.value = 0.7;
+    const gain = audio.createGain();
+    const start = audio.currentTime;
+    gain.gain.setValueAtTime(peak, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(dest);
+    src.start(start);
+    src.stop(start + dur + 0.02);
+    audioCalls += 1;
+    publishCalls();
+  });
 }
 
-/** Soft tick for buttons, tabs, and other controls. */
+/** Soft tick for buttons, tabs, links, and other controls. */
 export function playTap(): void {
   haptic(8);
-  tone({ freq: 1480, endFreq: 980, dur: 0.032, peak: 0.05, attack: 0.002 });
+  tone({ freq: 1480, endFreq: 980, dur: 0.045, peak: 0.055, attack: 0.002 });
 }
 
 /** Shell crack, lined up with the crack animation. */
