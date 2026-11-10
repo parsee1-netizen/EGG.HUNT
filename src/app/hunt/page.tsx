@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EggArt } from "@/components/EggArt";
 import { cameraActionLabel, cameraHelp, cameraStatusLabel } from "@/lib/camera";
 import { api, toast } from "@/lib/client";
 import { formatDistance } from "@/lib/format";
@@ -65,8 +66,8 @@ export default function HuntPage() {
     <div className="screen bleed">
       <div className="cam" aria-hidden>
         <div className="bld" style={{ left: "4%", width: "28%", height: "30%" }} />
-        <div className="bld" style={{ left: "36%", width: "22%", height: "22%", background: "#c98f6e" }} />
-        <div className="bld" style={{ left: "62%", width: "34%", height: "34%", background: "#9f8a75" }} />
+        <div className="bld" style={{ left: "36%", width: "22%", height: "22%", background: "#3a342c" }} />
+        <div className="bld" style={{ left: "62%", width: "34%", height: "34%", background: "#242220" }} />
       </div>
       <video
         ref={videoRef}
@@ -81,7 +82,7 @@ export default function HuntPage() {
       {target ? <div className="reticle" /> : null}
       {target ? (
         <button type="button" className="float" onClick={catchEgg} disabled={busy} aria-label="Catch egg">
-          <div className="e" />
+          <EggArt design={target.design} size={118} classicBand={!target.design} label="Egg" />
         </button>
       ) : null}
       <div className="arui">

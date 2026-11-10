@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { makeCode, makeToken, normalizeCode } from "../codes";
+import { CAFE_EGG, GARDEN_EGG, coerceEggDesign, parseEggDesign, resolveEggDesign } from "../egg-design";
 import { StoreError } from "../errors";
 import { CATCH_RADIUS_M, distanceM, pointInDisk } from "../geo";
 import { assertEggCount, EGG_PRICE_CENTS } from "../pricing";
@@ -12,6 +13,7 @@ import type {
   Claim,
   CreateCampaignInput,
   Database,
+  EggDesign,
   EggStore,
   NearbyEgg,
   RedeemResult,
@@ -77,14 +79,41 @@ function load(): Database {
     fs.writeFileSync(file, JSON.stringify(seed));
     return seed;
   }
-  return parsed;
+  return hydrate(parsed);
 }
 
 function save(db: Database) {
+  for (const claim of db.claims) delete claim.design;
   const file = dataFile();
   const tmp = `${file}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(db));
   fs.renameSync(tmp, file);
+}
+
+function hydrate(db: Database): Database {
+  for (const business of db.businesses) {
+    if (!Object.prototype.hasOwnProperty.call(business, "eggDesign")) {
+      business.eggDesign = business.id === IDS.cafe ? CAFE_EGG : business.id === IDS.leaf ? GARDEN_EGG : null;
+    } else {
+      business.eggDesign = coerceEggDesign(business.eggDesign);
+    }
+  }
+  for (const campaign of db.campaigns) {
+    campaign.eggDesign = coerceEggDesign(campaign.eggDesign);
+  }
+  return db;
+}
+
+function resolveFromDb(db: Database, campaignId: string, businessId: string): EggDesign | null {
+  const campaign = db.campaigns.find((c) => c.id === campaignId);
+  const business = db.businesses.find((b) => b.id === businessId);
+  return resolveEggDesign(business?.eggDesign ?? null, campaign?.eggDesign ?? null);
+}
+
+function presentClaim(db: Database, claim: Claim): Claim {
+  const copy = clone(claim);
+  copy.design = resolveFromDb(db, claim.campaignId, claim.businessId);
+  return copy;
 }
 
 function read<T>(fn: (db: Database) => T): T {
@@ -134,6 +163,14 @@ export const localStore: EggStore = {
     return read((db) => clone(db.businesses.find((b) => b.ownerId === ownerId) ?? null));
   },
 
+  async saveEggDesign(businessId, design) {
+    return write((db) => {
+      const business = requireBusiness(db, businessId);
+      business.eggDesign = design == null ? null : parseEggDesign(design);
+      return business.eggDesign;
+    });
+  },
+
   async listBusinessesNear(lat, lng, radiusM) {
     return read((db) =>
       clone(
@@ -163,6 +200,7 @@ export const localStore: EggStore = {
           businessName: egg.businessName,
           distanceM: d,
           expiresAt: egg.expiresAt,
+          design: resolveFromDb(db, egg.campaignId, egg.businessId),
         });
       }
       eggs.sort((a, b) => a.distanceM - b.distanceM);
@@ -211,22 +249,24 @@ export const localStore: EggStore = {
         expiresAt: egg.expiresAt,
       };
       db.claims.push(claim);
-      return clone(claim);
+      return presentClaim(db, claim);
     });
   },
 
   async listClaimsForPlayer(playerId) {
     return read((db) =>
-      clone(
-        db.claims
-          .filter((c) => c.playerId === playerId)
-          .sort((a, b) => b.claimedAt.localeCompare(a.claimedAt)),
-      ),
+      db.claims
+        .filter((c) => c.playerId === playerId)
+        .sort((a, b) => b.claimedAt.localeCompare(a.claimedAt))
+        .map((claim) => presentClaim(db, claim)),
     );
   },
 
   async getClaim(id) {
-    return read((db) => clone(db.claims.find((c) => c.id === id) ?? null));
+    return read((db) => {
+      const claim = db.claims.find((c) => c.id === id);
+      return claim ? presentClaim(db, claim) : null;
+    });
   },
 
   async redeem({ tokenOrCode, businessId, redeemedBy }) {
@@ -258,7 +298,7 @@ export const localStore: EggStore = {
         redeemedAt,
       };
       db.redemptions.push(redemption);
-      const result: RedeemResult = { claim: clone(claim), redemption };
+      const result: RedeemResult = { claim: presentClaim(db, claim), redemption };
       return result;
     });
   },
@@ -272,6 +312,7 @@ export const localStore: EggStore = {
     return write((db) => {
       const business = requireBusiness(db, input.businessId);
       const radiusM = input.radiusM >= 50 && input.radiusM <= 1000 ? Math.round(input.radiusM) : 400;
+      const eggDesign = input.eggDesign == null ? null : parseEggDesign(input.eggDesign);
       const now = new Date().toISOString();
       const campaign: Campaign = {
         id: crypto.randomUUID(),
@@ -288,6 +329,7 @@ export const localStore: EggStore = {
         stripeSessionId: null,
         createdAt: now,
         paidAt: null,
+        eggDesign,
       };
       db.campaigns.push(campaign);
       const expires = new Date(Date.now() + 14 * 86_400_000).toISOString();

@@ -114,10 +114,10 @@ insert into public.profiles (id, role, display_name, email, created_at) values
   ('00000000-0000-4000-8000-000000000436', 'player', 'Player 79', 'player79@eggdrop.demo', now()),
   ('00000000-0000-4000-8000-000000000437', 'player', 'Player 80', 'player80@eggdrop.demo', now());
 
-insert into public.businesses (id, owner_id, name, address, lat, lng, created_at) values
-  ('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000002', 'Bean There Cafe', '418 Hayes Street, San Francisco', 37.7764, -122.4241, now()),
-  ('00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-000000000003', 'Leaf & Loaf Bakery', '1900 Market Street, San Francisco', 37.774056, -122.407293, now()),
-  ('00000000-0000-4000-8000-00000000000c', '00000000-0000-4000-8000-000000000004', 'Sweet Crumb Shop', '321 Divisadero Street, San Francisco', 37.770862, -122.443344, now());
+insert into public.businesses (id, owner_id, name, address, lat, lng, egg_design, created_at) values
+  ('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000002', 'Bean There Cafe', '418 Hayes Street, San Francisco', 37.7764, -122.4241, '{"baseColor":"#F5F1E8","secondColor":"#C9A96E","pattern":"stripes","shine":true,"badge":{"kind":"text","text":"CAFE"}}'::jsonb, now()),
+  ('00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-000000000003', 'Leaf & Loaf Bakery', '1900 Market Street, San Francisco', 37.774056, -122.407293, '{"baseColor":"#0E3B32","secondColor":"#C9A96E","pattern":"polka","shine":true,"badge":{"kind":"text","text":"LEAF"}}'::jsonb, now()),
+  ('00000000-0000-4000-8000-00000000000c', '00000000-0000-4000-8000-000000000004', 'Sweet Crumb Shop', '321 Divisadero Street, San Francisco', 37.770862, -122.443344, null, now());
 
 insert into public.campaigns (id, business_id, name, reward_type, reward_label, reward_detail, reward_title, radius_m, egg_count, amount_cents, status, stripe_session_id, created_at, paid_at) values
   ('00000000-0000-4000-8000-000000000014', '00000000-0000-4000-8000-00000000000a', 'Spring Hunt', 'discount', '20% OFF', 'Any coffee drink', '20% off coffee', 400, 206, 1030, 'active', 'cs_test_seed_spring', (now() - interval '625442603 milliseconds'), (now() - interval '625442603 milliseconds')),

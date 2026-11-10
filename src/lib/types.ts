@@ -1,3 +1,7 @@
+import type { EggDesign } from "./egg-design";
+
+export type { EggDesign };
+
 export type Role = "player" | "business";
 export type RewardType = "discount" | "gift_card";
 export type EggStatus = "pending" | "active" | "claimed";
@@ -19,6 +23,7 @@ export interface Business {
   address: string;
   lat: number;
   lng: number;
+  eggDesign: EggDesign | null;
   createdAt: string;
 }
 
@@ -37,6 +42,8 @@ export interface Campaign {
   stripeSessionId: string | null;
   createdAt: string;
   paidAt: string | null;
+  /** Set only when this batch should not use the business egg. */
+  eggDesign: EggDesign | null;
 }
 
 export interface Egg {
@@ -72,6 +79,8 @@ export interface Claim {
   claimedAt: string;
   redeemedAt: string | null;
   expiresAt: string;
+  /** Resolved for display. Not stored on the claim row. */
+  design?: EggDesign | null;
 }
 
 export interface Redemption {
@@ -103,6 +112,7 @@ export interface NearbyEgg {
   businessName: string;
   distanceM: number;
   expiresAt: string;
+  design: EggDesign | null;
 }
 
 export interface Session {
@@ -162,6 +172,7 @@ export interface CreateCampaignInput {
   rewardTitle: string;
   radiusM: number;
   eggCount: number;
+  eggDesign?: EggDesign | null;
 }
 
 export interface RedeemResult {
@@ -176,6 +187,7 @@ export interface EggStore {
   getProfileByEmail(email: string): Promise<Profile | null>;
   getBusiness(id: string): Promise<Business | null>;
   getBusinessForOwner(ownerId: string): Promise<Business | null>;
+  saveEggDesign(businessId: string, design: EggDesign | null): Promise<EggDesign | null>;
   listBusinessesNear(lat: number, lng: number, radiusM: number): Promise<Business[]>;
   listNearbyEggs(lat: number, lng: number, radiusM: number): Promise<NearbyEgg[]>;
   claimEgg(input: { eggId: string; playerId: string; lat: number; lng: number }): Promise<Claim>;

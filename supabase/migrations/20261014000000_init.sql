@@ -22,6 +22,7 @@ create table if not exists public.businesses (
   address text not null default '',
   lat double precision not null,
   lng double precision not null,
+  egg_design jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -39,7 +40,8 @@ create table if not exists public.campaigns (
   status text not null default 'pending_payment' check (status in ('draft', 'pending_payment', 'active')),
   stripe_session_id text,
   created_at timestamptz not null default now(),
-  paid_at timestamptz
+  paid_at timestamptz,
+  egg_design jsonb
 );
 
 create table if not exists public.eggs (

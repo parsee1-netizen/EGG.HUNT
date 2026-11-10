@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { EggArt } from "@/components/EggArt";
 import { api } from "@/lib/client";
 import { daysLeft } from "@/lib/format";
 import type { Claim } from "@/lib/types";
@@ -15,26 +16,37 @@ export default function CrackPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setCracked(false);
+    setClaim(null);
     if (!claimId) {
       setError("That egg got away.");
       return;
     }
+    setError("");
     api<{ claim: Claim }>(`/api/claims/${claimId}`)
       .then((data) => setClaim(data.claim))
       .catch((err: Error) => setError(err.message));
-    const id = window.setTimeout(() => setCracked(true), 300);
-    return () => window.clearTimeout(id);
   }, [claimId]);
+
+  useEffect(() => {
+    if (!claim) return;
+    const id = window.setTimeout(() => setCracked(true), 320);
+    return () => window.clearTimeout(id);
+  }, [claim]);
 
   return (
     <div className="screen">
       <div className="crackwrap">
         <h1>You caught an egg!</h1>
-        <div className={cracked ? "egg2 cracked" : "egg2"} id="egg2">
-          <div className="half t" />
-          <div className="half b" />
+        <div className={cracked ? "crack-egg cracked" : "crack-egg"}>
+          <div className="crack-piece t">
+            <EggArt design={claim?.design ?? null} size={150} classicBand={!claim?.design} />
+          </div>
+          <div className="crack-piece b">
+            <EggArt design={claim?.design ?? null} size={150} classicBand={!claim?.design} />
+          </div>
         </div>
-        <div className={cracked && claim ? "reward show" : "reward"}>
+        <div className={cracked || error ? "reward show" : "reward"}>
           {claim ? (
             <>
               <div className="big">{claim.rewardLabel}</div>

@@ -1,8 +1,22 @@
 import type { Metadata, Viewport } from "next";
+import { Cormorant_Garamond, Inter } from "next/font/google";
 import { Suspense } from "react";
 import AppShell from "@/components/AppShell";
 import PwaRegister from "@/components/PwaRegister";
 import "./globals.css";
+
+const sans = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const serif = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-serif",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "EggDrop",
@@ -22,7 +36,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FFC93C",
+  themeColor: "#121212",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -30,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${sans.variable} ${serif.variable}`}>
       <body>
         <AppShell>
           <Suspense fallback={<div className="screen"><p className="sub">Loading…</p></div>}>{children}</Suspense>

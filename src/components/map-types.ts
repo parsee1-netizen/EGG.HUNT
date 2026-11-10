@@ -1,3 +1,5 @@
+import type { EggDesign } from "@/lib/egg-design";
+
 export interface MapPoint {
   lat: number;
   lng: number;
@@ -8,6 +10,7 @@ export interface MapEgg {
   lat: number;
   lng: number;
   label?: string;
+  design?: EggDesign | null;
 }
 
 export interface MapBusiness {

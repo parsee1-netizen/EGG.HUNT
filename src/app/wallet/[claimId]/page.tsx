@@ -24,7 +24,7 @@ export default function QrPage() {
     QRCode.toCanvas(canvas, claim.token, {
       width: 240,
       margin: 1,
-      color: { dark: "#2B2118", light: "#ffffff" },
+      color: { dark: "#121212", light: "#F5F1E8" },
     }).catch(() => toast("Could not draw the QR code."));
   }, [claim]);
 

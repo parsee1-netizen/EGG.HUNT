@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EggArt } from "@/components/EggArt";
+import { EggDesigner } from "@/components/EggDesigner";
 import MapView from "@/components/MapView";
 import { api, toast } from "@/lib/client";
+import { parseEggDesign, sameDesign, type EggDesign } from "@/lib/egg-design";
 import { formatUsd } from "@/lib/format";
 import { DROP_RADIUS_M, EGG_PRICE_CENTS, MAX_EGGS, MIN_EGGS } from "@/lib/pricing";
 import type { Campaign, RewardType } from "@/lib/types";
@@ -15,24 +18,82 @@ interface Config {
 
 export default function HidePage() {
   const router = useRouter();
+  const [step, setStep] = useState<"design" | "place">("design");
   const [config, setConfig] = useState<Config | null>(null);
+  const [saved, setSaved] = useState<EggDesign | null>(null);
+  const [draft, setDraft] = useState<EggDesign | null>(null);
+  const [ready, setReady] = useState(false);
+  const [batchOnly, setBatchOnly] = useState(false);
+  const [usingBatch, setUsingBatch] = useState(false);
+  const [batchDesign, setBatchDesign] = useState<EggDesign | null>(null);
   const [count, setCount] = useState(200);
   const [rewardType, setRewardType] = useState<RewardType>("discount");
   const [detail, setDetail] = useState("Any coffee drink");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api<Config>("/api/config").then(setConfig).catch((err: Error) => toast(err.message));
+    Promise.all([api<Config>("/api/config"), api<{ design: EggDesign | null }>("/api/design")])
+      .then(([nextConfig, nextDesign]) => {
+        setConfig(nextConfig);
+        setSaved(nextDesign.design);
+        setDraft(nextDesign.design);
+        setReady(true);
+      })
+      .catch((err: Error) => toast(err.message));
   }, []);
 
   const cents = count * EGG_PRICE_CENTS;
+  const effective = usingBatch ? batchDesign : saved;
+
+  async function keepEgg() {
+    if (draft) {
+      try {
+        parseEggDesign(draft);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Check the egg design.");
+        return;
+      }
+    }
+    if (batchOnly && draft == null && saved != null) {
+      toast("The plain egg would change every drop. Turn off “only this batch”, or pick a design.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (!batchOnly) {
+        const data = await api<{ design: EggDesign | null }>("/api/design", {
+          method: "PUT",
+          body: JSON.stringify({ design: draft }),
+        });
+        setSaved(data.design);
+        setDraft(data.design);
+        setUsingBatch(false);
+        setBatchDesign(null);
+      } else {
+        const override = draft && !sameDesign(draft, saved) ? draft : null;
+        setUsingBatch(override != null);
+        setBatchDesign(override);
+      }
+      setStep("place");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not keep that egg.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function continueToPay() {
     setBusy(true);
     try {
       const { campaign } = await api<{ campaign: Campaign }>("/api/campaigns", {
         method: "POST",
-        body: JSON.stringify({ eggCount: count, rewardType, rewardDetail: detail, radiusM: DROP_RADIUS_M }),
+        body: JSON.stringify({
+          eggCount: count,
+          rewardType,
+          rewardDetail: detail,
+          radiusM: DROP_RADIUS_M,
+          eggDesign: usingBatch ? batchDesign : null,
+        }),
       });
       router.push(`/business/checkout?campaign=${campaign.id}`);
     } catch (err) {
@@ -41,10 +102,38 @@ export default function HidePage() {
     }
   }
 
+  if (step === "design") {
+    return (
+      <div className="screen design-screen">
+        <div className="design-scroll">
+          <h1>Your egg</h1>
+          <p className="sub">Choose the egg for this drop before you place it.</p>
+          {ready ? <EggDesigner value={draft} onChange={setDraft} /> : <p className="sub">Loading your egg…</p>}
+          <label className="check-row">
+            <input type="checkbox" checked={batchOnly} onChange={(event) => setBatchOnly(event.target.checked)} />
+            <span>Only this batch</span>
+          </label>
+          <p className="hint">Off saves the egg for every future drop. On uses it just for the eggs you place next.</p>
+          <button type="button" className="btn" onClick={() => void keepEgg()} disabled={!ready || busy}>
+            {busy ? "Saving…" : "Continue"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="screen">
       <h1>Hide eggs</h1>
       <p className="sub">Eggs drop within the circle</p>
+      <button type="button" className="card design-link" onClick={() => setStep("design")}>
+        <EggArt design={effective} size={48} classicBand={!effective} label="Egg for this drop" />
+        <span className="design-copy">
+          <b>{usingBatch ? "This batch only" : "Your egg"}</b>
+          <span>Tap to change the design</span>
+        </span>
+        <span className="chev">›</span>
+      </button>
       {config ? (
         <div className="map-wrap">
           <MapView
@@ -91,7 +180,7 @@ export default function HidePage() {
         </span>
         <b>{formatUsd(cents)}</b>
       </div>
-      <button type="button" className="btn" onClick={continueToPay} disabled={busy}>
+      <button type="button" className="btn" onClick={() => void continueToPay()} disabled={busy}>
         {busy ? "Placing eggs…" : "Continue"}
       </button>
     </div>

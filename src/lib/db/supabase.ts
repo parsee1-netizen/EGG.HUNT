@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { coerceEggDesign, parseEggDesign, resolveEggDesign } from "../egg-design";
 import { StoreError } from "../errors";
 import { CATCH_RADIUS_M, distanceM, pointInDisk } from "../geo";
 import { assertEggCount, EGG_PRICE_CENTS } from "../pricing";
@@ -100,6 +101,7 @@ function business(row: Row): Business {
     address: String(row.address ?? ""),
     lat: Number(row.lat),
     lng: Number(row.lng),
+    eggDesign: coerceEggDesign(row.egg_design),
     createdAt: String(row.created_at),
   };
 }
@@ -120,6 +122,7 @@ function campaign(row: Row): Campaign {
     stripeSessionId: row.stripe_session_id ? String(row.stripe_session_id) : null,
     createdAt: String(row.created_at),
     paidAt: row.paid_at ? String(row.paid_at) : null,
+    eggDesign: coerceEggDesign(row.egg_design),
   };
 }
 
@@ -194,6 +197,35 @@ async function businessBundle(businessId: string) {
   };
 }
 
+async function designMaps(businessIds: string[], campaignIds: string[]) {
+  const businesses = [...new Set(businessIds)];
+  const campaigns = [...new Set(campaignIds)];
+  const [businessRows, campaignRows] = await Promise.all([
+    businesses.length
+      ? unwrap<Row[]>(admin().from("businesses").select("id,egg_design").in("id", businesses))
+      : Promise.resolve([] as Row[]),
+    campaigns.length
+      ? unwrap<Row[]>(admin().from("campaigns").select("id,egg_design").in("id", campaigns))
+      : Promise.resolve([] as Row[]),
+  ]);
+  return {
+    businesses: new Map(businessRows.map((row) => [String(row.id), coerceEggDesign(row.egg_design)])),
+    campaigns: new Map(campaignRows.map((row) => [String(row.id), coerceEggDesign(row.egg_design)])),
+  };
+}
+
+async function attachDesigns(rows: Claim[]): Promise<Claim[]> {
+  if (rows.length === 0) return rows;
+  const maps = await designMaps(
+    rows.map((row) => row.businessId),
+    rows.map((row) => row.campaignId),
+  );
+  return rows.map((row) => ({
+    ...row,
+    design: resolveEggDesign(maps.businesses.get(row.businessId) ?? null, maps.campaigns.get(row.campaignId) ?? null),
+  }));
+}
+
 export const supabaseStore: EggStore = {
   async reset() {
     throw new StoreError("unsupported", 400, "Reset Supabase data with npm run seed.");
@@ -217,6 +249,15 @@ export const supabaseStore: EggStore = {
   async getBusinessForOwner(ownerId) {
     const rows = await unwrap<Row[]>(admin().from("businesses").select("*").eq("owner_id", ownerId).limit(1));
     return rows[0] ? business(rows[0]) : null;
+  },
+
+  async saveEggDesign(businessId, design) {
+    const eggDesign = design == null ? null : parseEggDesign(design);
+    const rows = await unwrap<Row[]>(
+      admin().from("businesses").update({ egg_design: eggDesign }).eq("id", businessId).select("*"),
+    );
+    if (!rows[0]) throw new StoreError("not_found", 404, "Business not found.");
+    return business(rows[0]).eggDesign;
   },
 
   async listBusinessesNear(lat, lng, radiusM) {
@@ -246,7 +287,7 @@ export const supabaseStore: EggStore = {
     const rows = await unwrap<Row[]>(
       admin()
         .from("eggs")
-        .select("id,lat,lng,business_id,business_name,expires_at,status")
+        .select("id,lat,lng,business_id,business_name,campaign_id,expires_at,status")
         .eq("status", "active")
         .gte("lat", lat - latPad)
         .lte("lat", lat + latPad)
@@ -255,21 +296,37 @@ export const supabaseStore: EggStore = {
         .limit(5000),
     );
     const now = Date.now();
-    const eggs: NearbyEgg[] = [];
+    const prelim: Array<NearbyEgg & { campaignId: string }> = [];
     for (const row of rows) {
       if (new Date(String(row.expires_at)).getTime() < now) continue;
       const d = distanceM(lat, lng, Number(row.lat), Number(row.lng));
       if (d > radiusM) continue;
-      eggs.push({
+      prelim.push({
         id: String(row.id),
         lat: Number(row.lat),
         lng: Number(row.lng),
         businessId: String(row.business_id),
         businessName: String(row.business_name),
+        campaignId: String(row.campaign_id),
         distanceM: d,
         expiresAt: String(row.expires_at),
+        design: null,
       });
     }
+    const maps = await designMaps(
+      prelim.map((egg) => egg.businessId),
+      prelim.map((egg) => egg.campaignId),
+    );
+    const eggs: NearbyEgg[] = prelim.map((egg) => ({
+      id: egg.id,
+      lat: egg.lat,
+      lng: egg.lng,
+      businessId: egg.businessId,
+      businessName: egg.businessName,
+      distanceM: egg.distanceM,
+      expiresAt: egg.expiresAt,
+      design: resolveEggDesign(maps.businesses.get(egg.businessId) ?? null, maps.campaigns.get(egg.campaignId) ?? null),
+    }));
     eggs.sort((a, b) => a.distanceM - b.distanceM);
     return eggs;
   },
@@ -292,12 +349,14 @@ export const supabaseStore: EggStore = {
     const rows = await unwrap<Row[]>(
       admin().from("claims").select("*").eq("player_id", playerId).order("claimed_at", { ascending: false }).limit(200),
     );
-    return rows.map(claim);
+    return attachDesigns(rows.map(claim));
   },
 
   async getClaim(id) {
     const rows = await unwrap<Row[]>(admin().from("claims").select("*").eq("id", id).limit(1));
-    return rows[0] ? claim(rows[0]) : null;
+    if (!rows[0]) return null;
+    const [withDesign] = await attachDesigns([claim(rows[0])]);
+    return withDesign;
   },
 
   async redeem({ tokenOrCode, businessId, redeemedBy }) {
@@ -326,6 +385,7 @@ export const supabaseStore: EggStore = {
     const place = await this.getBusiness(input.businessId);
     if (!place) throw new StoreError("not_found", 404, "Business not found.");
     const radiusM = input.radiusM >= 50 && input.radiusM <= 1000 ? Math.round(input.radiusM) : 400;
+    const eggDesign = input.eggDesign == null ? null : parseEggDesign(input.eggDesign);
     const inserted = await unwrap<Row[]>(
       admin()
         .from("campaigns")
@@ -340,6 +400,7 @@ export const supabaseStore: EggStore = {
           egg_count: input.eggCount,
           amount_cents: input.eggCount * EGG_PRICE_CENTS,
           status: "pending_payment",
+          egg_design: eggDesign,
         })
         .select("*"),
     );

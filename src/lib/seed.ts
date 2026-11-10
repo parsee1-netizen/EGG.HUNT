@@ -1,4 +1,5 @@
 import { codeFromInt, tokenFromInt } from "./codes";
+import { CAFE_EGG, GARDEN_EGG } from "./egg-design";
 import { destination, type LatLng } from "./geo";
 import { EGG_PRICE_CENTS } from "./pricing";
 import type { Business, Campaign, Claim, Database, Egg, Profile, Redemption } from "./types";
@@ -144,6 +145,7 @@ export function buildSeed(now = new Date()): Database {
       address: "418 Hayes Street, San Francisco",
       lat: CAFE_LOCATION.lat,
       lng: CAFE_LOCATION.lng,
+      eggDesign: CAFE_EGG,
       createdAt: iso,
     },
     {
@@ -152,6 +154,7 @@ export function buildSeed(now = new Date()): Database {
       name: "Leaf & Loaf Bakery",
       address: "1900 Market Street, San Francisco",
       ...destination(CAFE_LOCATION.lat, CAFE_LOCATION.lng, 1500, 100),
+      eggDesign: GARDEN_EGG,
       createdAt: iso,
     },
     {
@@ -160,6 +163,7 @@ export function buildSeed(now = new Date()): Database {
       name: "Sweet Crumb Shop",
       address: "321 Divisadero Street, San Francisco",
       ...destination(CAFE_LOCATION.lat, CAFE_LOCATION.lng, 1800, 250),
+      eggDesign: null,
       createdAt: iso,
     },
   ];
@@ -178,6 +182,7 @@ export function buildSeed(now = new Date()): Database {
       stripeSessionId: "cs_test_seed_spring",
       createdAt: addDays(now, -7, 15),
       paidAt: addDays(now, -7, 15),
+      eggDesign: null,
     },
     {
       id: IDS.leafCampaign,
@@ -191,6 +196,7 @@ export function buildSeed(now = new Date()): Database {
       stripeSessionId: "cs_test_seed_leaf",
       createdAt: addDays(now, -12, 15),
       paidAt: addDays(now, -12, 15),
+      eggDesign: null,
     },
     {
       id: IDS.crumbCampaign,
@@ -204,6 +210,7 @@ export function buildSeed(now = new Date()): Database {
       stripeSessionId: "cs_test_seed_crumb",
       createdAt: addDays(now, -3, 15),
       paidAt: addDays(now, -3, 15),
+      eggDesign: null,
     },
   ];
 

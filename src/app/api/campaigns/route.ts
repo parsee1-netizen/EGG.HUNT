@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/db";
+import { parseEggDesign } from "@/lib/egg-design";
 import { fail } from "@/lib/http";
 import { DROP_RADIUS_M } from "@/lib/pricing";
 import { buildReward, campaignName } from "@/lib/rewards";
@@ -16,6 +17,7 @@ export async function POST(req: Request) {
       rewardType?: RewardType;
       rewardDetail?: string;
       radiusM?: number;
+      eggDesign?: unknown;
     };
     const rewardType: RewardType = body.rewardType === "gift_card" ? "gift_card" : "discount";
     const reward = buildReward(rewardType, String(body.rewardDetail ?? ""));
@@ -24,6 +26,7 @@ export async function POST(req: Request) {
       name: campaignName(),
       radiusM: Number(body.radiusM) || DROP_RADIUS_M,
       eggCount: Number(body.eggCount),
+      eggDesign: body.eggDesign == null ? null : parseEggDesign(body.eggDesign),
       ...reward,
     });
     return NextResponse.json({ campaign });

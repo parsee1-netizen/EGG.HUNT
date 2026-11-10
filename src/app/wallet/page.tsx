@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { EggArt } from "@/components/EggArt";
 import { api, toast } from "@/lib/client";
 import { daysLeft, rewardEmoji } from "@/lib/format";
 import type { Claim } from "@/lib/types";
@@ -30,12 +31,12 @@ export default function WalletPage() {
       ) : null}
       {claims?.map((claim) => (
         <Link key={claim.id} href={`/wallet/${claim.id}`} className={`card list wallet-link${claim.status === "redeemed" ? " used" : ""}`}>
-          <div className="row">
-            <div>
+          <div className="row wallet-row">
+            <EggArt design={claim.design ?? null} size={44} classicBand={!claim.design} label="" />
+            <div className="wallet-copy">
               <b>
                 {rewardEmoji(claim.rewardTitle)} {claim.rewardTitle}
               </b>
-              <br />
               <span>
                 {claim.businessName} · {claim.status === "redeemed" ? "Redeemed" : daysLeft(claim.expiresAt)}
               </span>
