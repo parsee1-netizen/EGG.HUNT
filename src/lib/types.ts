@@ -37,6 +37,8 @@ export interface Campaign {
   rewardTitle: string;
   radiusM: number;
   eggCount: number;
+  /** Eggs in this batch with nothing inside. The rest carry the reward. */
+  emptyCount: number;
   amountCents: number;
   status: CampaignStatus;
   stripeSessionId: string | null;
@@ -58,6 +60,10 @@ export interface Egg {
   rewardDetail: string;
   rewardTitle: string;
   status: EggStatus;
+  /** Nothing inside. Opening it does not create a wallet reward. */
+  empty: boolean;
+  /** Player who opened an empty egg. Null until then, and on prize eggs. */
+  openedBy: string | null;
   expiresAt: string;
   createdAt: string;
 }
@@ -172,6 +178,8 @@ export interface CreateCampaignInput {
   rewardTitle: string;
   radiusM: number;
   eggCount: number;
+  /** How many of eggCount are empty. Defaults to 0. */
+  emptyCount?: number;
   eggDesign?: EggDesign | null;
 }
 
@@ -180,6 +188,18 @@ export interface RedeemResult {
   redemption: Redemption;
   alreadyRedeemed?: boolean;
 }
+
+/** An opened egg that had no prize. It is not a wallet claim. */
+export interface EmptyOpening {
+  outcome: "empty";
+  eggId: string;
+  businessId: string;
+  businessName: string;
+  playerId: string;
+  design: EggDesign | null;
+}
+
+export type CatchResult = { outcome: "prize"; claim: Claim } | EmptyOpening;
 
 export interface EggStore {
   reset(): Promise<void>;
@@ -190,7 +210,8 @@ export interface EggStore {
   saveEggDesign(businessId: string, design: EggDesign | null): Promise<EggDesign | null>;
   listBusinessesNear(lat: number, lng: number, radiusM: number): Promise<Business[]>;
   listNearbyEggs(lat: number, lng: number, radiusM: number): Promise<NearbyEgg[]>;
-  claimEgg(input: { eggId: string; playerId: string; lat: number; lng: number }): Promise<Claim>;
+  claimEgg(input: { eggId: string; playerId: string; lat: number; lng: number }): Promise<CatchResult>;
+  getEmptyOpening(eggId: string, playerId: string): Promise<EmptyOpening | null>;
   listClaimsForPlayer(playerId: string): Promise<Claim[]>;
   getClaim(id: string): Promise<Claim | null>;
   redeem(input: { tokenOrCode: string; businessId: string; redeemedBy: string }): Promise<RedeemResult>;

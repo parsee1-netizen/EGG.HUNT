@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, toast } from "@/lib/client";
 import { formatUsd } from "@/lib/format";
+import { prizeOddsPercent } from "@/lib/pricing";
 import type { Campaign } from "@/lib/types";
 
 interface Config {
@@ -65,6 +66,17 @@ export default function CheckoutPage() {
           <b>{campaign?.eggCount ?? "—"}</b>
         </div>
         <br />
+        {campaign && campaign.emptyCount > 0 ? (
+          <>
+            <div className="row">
+              <span>Prize odds</span>
+              <b>
+                {prizeOddsPercent(campaign.eggCount, campaign.emptyCount)}% · {campaign.emptyCount} empty
+              </b>
+            </div>
+            <br />
+          </>
+        ) : null}
         <div className="row">
           <span>Reward</span>
           <b>{campaign ? (campaign.rewardType === "gift_card" ? campaign.rewardTitle : campaign.rewardLabel.replace(" OFF", " off")) : "—"}</b>

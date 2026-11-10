@@ -10,9 +10,12 @@ import {
   COOKIE_CODE,
   GIFT_CODE,
   DEMO_PLAYER,
+  EMPTY_NEAR_DISTANCE_M,
+  EMPTY_NEAR_POS,
   HUNTABLE_DISTANCE_M,
   HUNTABLE_EGG_POS,
   IDS,
+  SEEDED_EMPTY_COUNT,
   TOO_FAR_DISTANCE_M,
   TOO_FAR_EGG_POS,
 } from "../src/lib/seed";
@@ -26,10 +29,14 @@ for (const extra of ["", ".lock", ".tmp"]) {
 test("distance helper matches the seeded egg offsets", () => {
   const near = distanceM(DEMO_PLAYER.lat, DEMO_PLAYER.lng, HUNTABLE_EGG_POS.lat, HUNTABLE_EGG_POS.lng);
   const far = distanceM(DEMO_PLAYER.lat, DEMO_PLAYER.lng, TOO_FAR_EGG_POS.lat, TOO_FAR_EGG_POS.lng);
+  const emptyNear = distanceM(DEMO_PLAYER.lat, DEMO_PLAYER.lng, EMPTY_NEAR_POS.lat, EMPTY_NEAR_POS.lng);
   assert.ok(Math.abs(near - HUNTABLE_DISTANCE_M) < 0.5);
   assert.ok(Math.abs(far - TOO_FAR_DISTANCE_M) < 0.5);
+  assert.ok(Math.abs(emptyNear - EMPTY_NEAR_DISTANCE_M) < 0.5);
   assert.equal(amountCents(200), 1000);
   assert.ok(near <= CATCH_RADIUS_M);
+  assert.ok(emptyNear <= CATCH_RADIUS_M);
+  assert.ok(emptyNear > near);
   assert.ok(far > CATCH_RADIUS_M);
 });
 
@@ -54,13 +61,46 @@ test("seed, catch radius, one-time redeem, and paid activation", async () => {
   assert.equal(results.selected.bestDay, "Saturday");
   assert.equal(results.selected.topReward, "20% off coffee");
 
+  const seeded = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    eggs: { id: string; empty?: boolean }[];
+    campaigns: { id: string; emptyCount?: number }[];
+  };
+  assert.equal(seeded.eggs.filter((egg) => egg.empty).length, SEEDED_EMPTY_COUNT);
+  assert.equal(seeded.campaigns.find((campaign) => campaign.id === IDS.spring)?.emptyCount, SEEDED_EMPTY_COUNT);
+
   const nearby = await localStore.listNearbyEggs(DEMO_PLAYER.lat, DEMO_PLAYER.lng, 1000);
   const inRange = nearby.filter((egg) => egg.distanceM <= CATCH_RADIUS_M);
   assert.deepEqual(
     inRange.map((egg) => egg.id),
-    [IDS.huntableEgg],
+    [IDS.huntableEgg, IDS.emptyNear],
   );
   assert.ok(sameDesign(inRange[0].design, CAFE_EGG));
+
+  const empty = await localStore.claimEgg({
+    eggId: IDS.emptyNear,
+    playerId: IDS.player,
+    lat: DEMO_PLAYER.lat,
+    lng: DEMO_PLAYER.lng,
+  });
+  assert.equal(empty.outcome, "empty");
+  if (empty.outcome === "empty") {
+    assert.equal(empty.eggId, IDS.emptyNear);
+    assert.equal(empty.businessName, "Bean There Cafe");
+    assert.ok(sameDesign(empty.design, CAFE_EGG));
+  }
+  const opened = await localStore.getEmptyOpening(IDS.emptyNear, IDS.player);
+  assert.equal(opened?.eggId, IDS.emptyNear);
+  assert.equal(await localStore.getEmptyOpening(IDS.emptyNear, IDS.cafeOwner), null);
+  await assert.rejects(
+    () =>
+      localStore.claimEgg({
+        eggId: IDS.emptyNear,
+        playerId: IDS.player,
+        lat: DEMO_PLAYER.lat,
+        lng: DEMO_PLAYER.lng,
+      }),
+    (err: unknown) => (err as { code?: string }).code === "unavailable",
+  );
 
   await assert.rejects(
     () =>
@@ -73,12 +113,15 @@ test("seed, catch radius, one-time redeem, and paid activation", async () => {
     (err: unknown) => (err as { code?: string }).code === "too_far",
   );
 
-  const claim = await localStore.claimEgg({
+  const caught = await localStore.claimEgg({
     eggId: IDS.huntableEgg,
     playerId: IDS.player,
     lat: DEMO_PLAYER.lat,
     lng: DEMO_PLAYER.lng,
   });
+  assert.equal(caught.outcome, "prize");
+  if (caught.outcome !== "prize") return;
+  const claim = caught.claim;
   assert.equal(claim.rewardTitle, "20% off coffee");
   assert.equal(claim.status, "active");
   assert.match(claim.code, /^EGG-[A-Z0-9]{4}-[A-Z0-9]{2}$/);
@@ -147,8 +190,10 @@ test("seed, catch radius, one-time redeem, and paid activation", async () => {
     rewardTitle: "15% off",
     radiusM: 400,
     eggCount: 20,
+    emptyCount: 4,
   });
   assert.equal(created.amountCents, 100);
+  assert.equal(created.emptyCount, 4);
   assert.equal(created.status, "pending_payment");
   const pending = (await localStore.listNearbyEggs(CAFE_LOCATION.lat, CAFE_LOCATION.lng, 400)).length;
   assert.equal(pending, before);
@@ -157,8 +202,29 @@ test("seed, catch radius, one-time redeem, and paid activation", async () => {
   await localStore.activateCampaign(created.id, "cs_test_activation");
   const after = (await localStore.listNearbyEggs(CAFE_LOCATION.lat, CAFE_LOCATION.lng, 400)).length;
   assert.equal(after - before, 20);
+  const saved = JSON.parse(fs.readFileSync(file, "utf8")) as { eggs: { campaignId: string; empty?: boolean }[] };
+  const batch = saved.eggs.filter((egg) => egg.campaignId === created.id);
+  assert.equal(batch.length, 20);
+  assert.equal(batch.filter((egg) => egg.empty).length, 4);
+
+  await assert.rejects(
+    () =>
+      localStore.createCampaign({
+        businessId: IDS.cafe,
+        name: "Too many empty",
+        rewardType: "discount",
+        rewardLabel: "15% OFF",
+        rewardDetail: "Any coffee drink",
+        rewardTitle: "15% off",
+        radiusM: 400,
+        eggCount: 20,
+        emptyCount: 21,
+      }),
+    (err: unknown) => (err as { code?: string }).code === "bad_count",
+  );
 
   const wallet = await localStore.listClaimsForPlayer(IDS.player);
+  assert.ok(wallet.every((item) => item.eggId !== IDS.emptyNear));
   assert.ok(wallet.some((item) => item.code === COFFEE_CODE));
   assert.ok(wallet.some((item) => item.id === claim.id && item.status === "redeemed"));
   const coffeeCard = wallet.find((item) => item.code === COFFEE_CODE);

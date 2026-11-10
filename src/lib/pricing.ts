@@ -15,3 +15,28 @@ export function assertEggCount(eggCount: number): void {
     throw new Error(`Egg count must be ${MIN_EGGS}–${MAX_EGGS} in steps of ${EGG_STEP}.`);
   }
 }
+
+export function assertEmptyCount(emptyCount: number, eggCount: number): void {
+  if (!Number.isInteger(emptyCount) || emptyCount < 0 || emptyCount > eggCount) {
+    throw new Error("Empty eggs must be a whole number from 0 up to the batch size.");
+  }
+}
+
+/** Share of the batch that still has a reward, rounded to the nearest percent. */
+export function prizeOddsPercent(eggCount: number, emptyCount: number): number {
+  if (eggCount <= 0) return 0;
+  const prizes = Math.max(0, eggCount - emptyCount);
+  return Math.round((prizes / eggCount) * 100);
+}
+
+/**
+ * Indexes of empty eggs inside a batch. Spread across the drop so they are
+ * not stacked on the same spot, and stable for a given count.
+ */
+export function emptyEggIndexes(eggCount: number, emptyCount: number): number[] {
+  if (emptyCount <= 0 || eggCount <= 0) return [];
+  const indexes: number[] = [];
+  const count = Math.min(emptyCount, eggCount);
+  for (let i = 0; i < count; i++) indexes.push(Math.floor((i * eggCount) / count));
+  return indexes;
+}

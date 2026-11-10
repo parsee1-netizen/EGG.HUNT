@@ -69,6 +69,24 @@ test("jsQR reads a code painted the same way the wallet draws one", () => {
   assert.equal(decodeQrImage(data, dim, dim), text);
 });
 
+test("sounds stay quiet without a browser, and empty eggs stay inside a batch", async () => {
+  const { playAww, playChime, playCrack, playFlourish, playTap, soundEnabled } = await import("../src/lib/sound");
+  const { assertEmptyCount, emptyEggIndexes, prizeOddsPercent } = await import("../src/lib/pricing");
+  assert.equal(soundEnabled(), true);
+  playTap();
+  playCrack();
+  playChime();
+  playFlourish();
+  playAww();
+  assert.equal(prizeOddsPercent(200, 20), 90);
+  assert.equal(prizeOddsPercent(200, 0), 100);
+  const indexes = emptyEggIndexes(20, 4);
+  assert.deepEqual(indexes, [0, 5, 10, 15]);
+  assert.throws(() => assertEmptyCount(-1, 20));
+  assert.throws(() => assertEmptyCount(21, 20));
+  assert.doesNotThrow(() => assertEmptyCount(0, 20));
+});
+
 test("the phone shell uses dynamic viewport, safe areas, and 16px inputs", () => {
   const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
   const layout = fs.readFileSync(path.join(process.cwd(), "src/app/layout.tsx"), "utf8");
