@@ -76,7 +76,7 @@ export default function LeafletMap({
           <Circle
             center={[circle.lat, circle.lng]}
             radius={circle.radiusM}
-            pathOptions={{ color: "#F4A900", fillColor: "#FFC93C", fillOpacity: 0.28, weight: 2, dashArray: "6 6" }}
+            pathOptions={{ color: "#C9A96E", fillColor: "#C9A96E", fillOpacity: 0.16, weight: 1, dashArray: "4 6" }}
           />
         ) : null}
         {businesses.map((b) => (

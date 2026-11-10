@@ -20,9 +20,9 @@ test("presets round-trip and badge text stays short", () => {
 
 test("egg markup escapes badge text and only embeds a png logo", () => {
   const plain = eggMarkup(null, { id: "plain", classicBand: true });
-  assert.match(plain, /#ffc93c/);
-  assert.match(plain, /#e85d75/);
-  assert.equal(eggMarkup(null, { id: "pin", detail: "mini" }).includes("#e85d75"), false);
+  assert.match(plain, /#c9a96e/);
+  assert.match(plain, /#f5f1e8/);
+  assert.equal(eggMarkup(null, { id: "pin", detail: "mini" }).includes("band"), false);
 
   const marked = eggMarkup(
     {

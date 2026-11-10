@@ -66,8 +66,8 @@ export default function HuntPage() {
     <div className="screen bleed">
       <div className="cam" aria-hidden>
         <div className="bld" style={{ left: "4%", width: "28%", height: "30%" }} />
-        <div className="bld" style={{ left: "36%", width: "22%", height: "22%", background: "#c98f6e" }} />
-        <div className="bld" style={{ left: "62%", width: "34%", height: "34%", background: "#9f8a75" }} />
+        <div className="bld" style={{ left: "36%", width: "22%", height: "22%", background: "#3a342c" }} />
+        <div className="bld" style={{ left: "62%", width: "34%", height: "34%", background: "#242220" }} />
       </div>
       <video
         ref={videoRef}

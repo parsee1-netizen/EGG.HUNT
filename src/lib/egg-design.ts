@@ -28,81 +28,81 @@ const LOGO_PREFIX = "data:image/png;base64,";
 const PNG_MAGIC = "iVBORw0KGgo";
 
 export const EGG_PALETTE = [
-  "#FFC93C",
-  "#F4A900",
-  "#F6E7C1",
-  "#FFFFFF",
-  "#E85D75",
-  "#F28C28",
-  "#6F4E37",
-  "#3BB273",
-  "#2F6F4E",
+  "#C9A96E",
+  "#F5F1E8",
+  "#E8C4B8",
+  "#8C7348",
+  "#1C1C1E",
+  "#0E3B32",
+  "#1F6B4A",
+  "#0E2744",
   "#3D5A80",
-  "#7C5CBF",
-  "#2B2118",
+  "#6B2D3C",
+  "#A89880",
+  "#F7F4EF",
 ] as const;
 
 export const EGG_EMOJIS = ["☕", "🥐", "🍪", "🌿", "🌸", "⭐", "🎁", "💛", "🍓", "🍋", "🍞", "🐝", "🍀", "💎", "🐣", "🔥", "🍦", "🧀"] as const;
 
 export const CLASSIC_EGG: EggDesign = {
-  baseColor: "#FFC93C",
-  secondColor: "#F4A900",
+  baseColor: "#F5F1E8",
+  secondColor: "#C9A96E",
   pattern: "gradient",
   shine: true,
   badge: { kind: "none" },
 };
 
 export const CAFE_EGG: EggDesign = {
-  baseColor: "#F6E7C1",
-  secondColor: "#6F4E37",
+  baseColor: "#F5F1E8",
+  secondColor: "#C9A96E",
   pattern: "stripes",
   shine: true,
-  badge: { kind: "emoji", emoji: "☕" },
+  badge: { kind: "text", text: "CAFE" },
 };
 
 export const GARDEN_EGG: EggDesign = {
-  baseColor: "#E7F2D9",
-  secondColor: "#2F6F4E",
+  baseColor: "#0E3B32",
+  secondColor: "#C9A96E",
   pattern: "polka",
-  shine: false,
-  badge: { kind: "emoji", emoji: "🌿" },
+  shine: true,
+  badge: { kind: "text", text: "LEAF" },
 };
 
 export const EGG_PRESETS: { id: string; name: string; design: EggDesign }[] = [
-  { id: "classic", name: "Classic", design: CLASSIC_EGG },
+  { id: "pearl", name: "Pearl", design: CLASSIC_EGG },
   { id: "cafe", name: "Cafe", design: CAFE_EGG },
-  { id: "garden", name: "Garden", design: GARDEN_EGG },
+  { id: "emerald", name: "Emerald", design: GARDEN_EGG },
   {
-    id: "berry",
-    name: "Berry",
+    id: "onyx",
+    name: "Onyx",
     design: {
-      baseColor: "#F8D5E0",
-      secondColor: "#E85D75",
-      pattern: "spots",
+      baseColor: "#1C1C1E",
+      secondColor: "#C9A96E",
+      pattern: "gradient",
       shine: true,
-      badge: { kind: "emoji", emoji: "🍓" },
+      badge: { kind: "text", text: "ONYX" },
     },
   },
   {
-    id: "night",
-    name: "Night",
+    id: "sapphire",
+    name: "Sapphire",
     design: {
-      baseColor: "#1E2A4A",
-      secondColor: "#F4A900",
+      baseColor: "#0E2744",
+      secondColor: "#C9A96E",
       pattern: "gradient",
       shine: true,
       badge: { kind: "text", text: "VIP" },
     },
   },
   {
-    id: "sunny",
-    name: "Sunny",
+    id: "rose",
+    name: "Rose",
     design: {
-      baseColor: "#FFE08A",
-      secondColor: "#F28C28",
-      pattern: "zigzag",
+      baseColor: "#E8C4B8",
+      secondColor: "#6B2D3C",
+      pattern: "spots",
       shine: true,
-      badge: { kind: "emoji", emoji: "⭐" },
+      badge: { kind: "none" },
     },
   },
 ];

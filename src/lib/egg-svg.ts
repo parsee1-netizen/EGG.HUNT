@@ -20,10 +20,10 @@ export function eggMarkup(design: EggDesign | null, options: EggMarkupOptions): 
     `<clipPath id="${id}-shell"><path d="${EGG_PATH}"/></clipPath>`,
     `<linearGradient id="${id}-shade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.2"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.16"/></linearGradient>`,
   ];
-  let fill = "#FFC93C";
+  let fill = "#C9A96E";
   if (!design) {
     defs.push(
-      `<radialGradient id="${id}-fill" cx="35%" cy="28%" r="78%"><stop offset="0" stop-color="#fff7d6"/><stop offset="0.55" stop-color="#ffc93c"/><stop offset="1" stop-color="#f4a900"/></radialGradient>`,
+      `<radialGradient id="${id}-fill" cx="35%" cy="28%" r="78%"><stop offset="0" stop-color="#f5f1e8"/><stop offset="0.55" stop-color="#e7d7b8"/><stop offset="1" stop-color="#c9a96e"/></radialGradient>`,
     );
     fill = `url(#${id}-fill)`;
   } else {
@@ -34,7 +34,7 @@ export function eggMarkup(design: EggDesign | null, options: EggMarkupOptions): 
 
   const band =
     !design && options.classicBand
-      ? `<pattern id="${id}-band" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="7" height="14" fill="#ffffff"/><rect x="7" width="7" height="14" fill="#e85d75"/></pattern><rect x="0" y="54" width="100" height="12" fill="url(#${id}-band)"/>`
+      ? `<pattern id="${id}-band" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="7" height="14" fill="#f5f1e8"/><rect x="7" width="7" height="14" fill="#c9a96e"/></pattern><rect x="0" y="54" width="100" height="12" fill="url(#${id}-band)"/>`
       : "";
   const shine =
     design?.shine && detail === "full"
