@@ -4,7 +4,7 @@ import { makeCode, makeToken, normalizeCode } from "../codes";
 import { CAFE_EGG, GARDEN_EGG, coerceEggDesign, parseEggDesign, resolveEggDesign } from "../egg-design";
 import { StoreError } from "../errors";
 import { CATCH_RADIUS_M, distanceM, pointInDisk } from "../geo";
-import { assertEggCount, EGG_PRICE_CENTS } from "../pricing";
+import { assertEggCount, assertEmptyCount, emptyEggIndexes, EGG_PRICE_CENTS } from "../pricing";
 import { buildSeed, IDS } from "../seed";
 import { campaignSummaries, dashboardFrom, resultsFrom } from "../stats";
 import type {
@@ -15,6 +15,7 @@ import type {
   Database,
   EggDesign,
   EggStore,
+  EmptyOpening,
   NearbyEgg,
   RedeemResult,
 } from "../types";
@@ -100,6 +101,12 @@ function hydrate(db: Database): Database {
   }
   for (const campaign of db.campaigns) {
     campaign.eggDesign = coerceEggDesign(campaign.eggDesign);
+    const emptyCount = campaign.emptyCount;
+    campaign.emptyCount = Number.isInteger(emptyCount) && emptyCount > 0 ? Math.min(emptyCount, campaign.eggCount) : 0;
+  }
+  for (const egg of db.eggs) {
+    egg.empty = Boolean(egg.empty);
+    egg.openedBy = egg.openedBy || null;
   }
   return db;
 }
@@ -228,6 +235,18 @@ export const localStore: EggStore = {
         );
       }
       egg.status = "claimed";
+      if (egg.empty) {
+        egg.openedBy = playerId;
+        const opening: EmptyOpening = {
+          outcome: "empty",
+          eggId: egg.id,
+          businessId: egg.businessId,
+          businessName: egg.businessName,
+          playerId,
+          design: resolveFromDb(db, egg.campaignId, egg.businessId),
+        };
+        return opening;
+      }
       let code = makeCode();
       for (let i = 0; i < 5 && db.claims.some((c) => c.code === code); i++) code = makeCode();
       const claim: Claim = {
@@ -249,7 +268,23 @@ export const localStore: EggStore = {
         expiresAt: egg.expiresAt,
       };
       db.claims.push(claim);
-      return presentClaim(db, claim);
+      return { outcome: "prize", claim: presentClaim(db, claim) };
+    });
+  },
+
+  async getEmptyOpening(eggId, playerId) {
+    return read((db) => {
+      const egg = db.eggs.find((item) => item.id === eggId);
+      if (!egg || !egg.empty || egg.status !== "claimed" || egg.openedBy !== playerId) return null;
+      const opening: EmptyOpening = {
+        outcome: "empty",
+        eggId: egg.id,
+        businessId: egg.businessId,
+        businessName: egg.businessName,
+        playerId,
+        design: resolveFromDb(db, egg.campaignId, egg.businessId),
+      };
+      return opening;
     });
   },
 
@@ -304,8 +339,10 @@ export const localStore: EggStore = {
   },
 
   async createCampaign(input: CreateCampaignInput) {
+    const emptyCount = input.emptyCount ?? 0;
     try {
       assertEggCount(input.eggCount);
+      assertEmptyCount(emptyCount, input.eggCount);
     } catch (err) {
       throw new StoreError("bad_count", 400, err instanceof Error ? err.message : "Bad egg count.");
     }
@@ -324,6 +361,7 @@ export const localStore: EggStore = {
         rewardTitle: input.rewardTitle,
         radiusM,
         eggCount: input.eggCount,
+        emptyCount,
         amountCents: input.eggCount * EGG_PRICE_CENTS,
         status: "pending_payment",
         stripeSessionId: null,
@@ -333,6 +371,7 @@ export const localStore: EggStore = {
       };
       db.campaigns.push(campaign);
       const expires = new Date(Date.now() + 14 * 86_400_000).toISOString();
+      const emptyAt = new Set(emptyEggIndexes(input.eggCount, emptyCount));
       for (let i = 0; i < input.eggCount; i++) {
         const pos = pointInDisk(business.lat, business.lng, radiusM, 20, Math.random);
         db.eggs.push({
@@ -347,6 +386,8 @@ export const localStore: EggStore = {
           rewardDetail: input.rewardDetail,
           rewardTitle: input.rewardTitle,
           status: "pending",
+          empty: emptyAt.has(i),
+          openedBy: null,
           expiresAt: expires,
           createdAt: now,
         });

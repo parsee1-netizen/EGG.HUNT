@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import SoundToggle from "@/components/SoundToggle";
 import { api, setRoleHint } from "@/lib/client";
+import { useInterfaceSounds } from "@/lib/use-sound";
 import type { Session } from "@/lib/types";
 
 interface Config {
@@ -37,6 +39,7 @@ function navOn(pathname: string, href: string) {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  useInterfaceSounds();
   const [session, setSession] = useState<Session | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [toastMsg, setToastMsg] = useState("");
@@ -110,15 +113,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="stage">
       <div className={`phone${hunt ? " hunt" : ""}`}>
-        {hunt ? null : (
+        {hunt ? (
+          <SoundToggle className="hunt-toggle" />
+        ) : (
           <header className="top">
-            <div className="toggle">
-              <button type="button" className={!wantBusiness ? "on" : ""} onClick={() => switchSide("player")}>
-                🥚 Player
-              </button>
-              <button type="button" className={wantBusiness ? "on" : ""} onClick={() => switchSide("business")}>
-                🏪 Business
-              </button>
+            <div className="top-row">
+              <div className="toggle">
+                <button type="button" className={!wantBusiness ? "on" : ""} onClick={() => switchSide("player")}>
+                  🥚 Player
+                </button>
+                <button type="button" className={wantBusiness ? "on" : ""} onClick={() => switchSide("business")}>
+                  🏪 Business
+                </button>
+              </div>
+              <SoundToggle />
             </div>
             <div className="demo">
               {config?.driver === "supabase" ? "Supabase" : "Demo seed"} · ${price} an egg

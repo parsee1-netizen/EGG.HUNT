@@ -16,9 +16,14 @@ export const DEMO_PLAYER: LatLng = destination(CAFE_LOCATION.lat, CAFE_LOCATION.
 
 export const HUNTABLE_DISTANCE_M = 42;
 export const TOO_FAR_DISTANCE_M = 60;
+/** Inside the catch radius, a step farther than the prize egg. */
+export const EMPTY_NEAR_DISTANCE_M = 48;
+/** Live cafe eggs with nothing inside, including the one a player can open. */
+export const SEEDED_EMPTY_COUNT = 6;
 
 export const HUNTABLE_EGG_POS: LatLng = destination(DEMO_PLAYER.lat, DEMO_PLAYER.lng, HUNTABLE_DISTANCE_M, 15);
 export const TOO_FAR_EGG_POS: LatLng = destination(DEMO_PLAYER.lat, DEMO_PLAYER.lng, TOO_FAR_DISTANCE_M, 140);
+export const EMPTY_NEAR_POS: LatLng = destination(DEMO_PLAYER.lat, DEMO_PLAYER.lng, EMPTY_NEAR_DISTANCE_M, 40);
 
 export const IDS = {
   player: uid(1),
@@ -33,6 +38,7 @@ export const IDS = {
   crumbCampaign: uid(22),
   huntableEgg: uid(100),
   tooFarEgg: uid(101),
+  emptyNear: uid(500),
   egg180: uid(102),
   egg240: uid(103),
   egg390: uid(104),
@@ -114,6 +120,7 @@ const COOKIE: Reward = {
  * Demo world used by the local database and by `scripts/seed.ts`.
  * Counts match the prototype dashboard: 120 eggs still hidden, 86 found,
  * 41 redeemed, $10.30 spent (206 eggs × $0.05) at Bean There Cafe.
+ * Six of those live eggs are empty, one of them within catch range.
  */
 export function buildSeed(now = new Date()): Database {
   const iso = now.toISOString();
@@ -177,6 +184,7 @@ export function buildSeed(now = new Date()): Database {
       ...COFFEE,
       radiusM: 400,
       eggCount: springEggs,
+      emptyCount: SEEDED_EMPTY_COUNT,
       amountCents: springEggs * EGG_PRICE_CENTS,
       status: "active",
       stripeSessionId: "cs_test_seed_spring",
@@ -191,6 +199,7 @@ export function buildSeed(now = new Date()): Database {
       ...GIFT,
       radiusM: 400,
       eggCount: 1,
+      emptyCount: 0,
       amountCents: EGG_PRICE_CENTS,
       status: "active",
       stripeSessionId: "cs_test_seed_leaf",
@@ -205,6 +214,7 @@ export function buildSeed(now = new Date()): Database {
       ...COOKIE,
       radiusM: 400,
       eggCount: 1,
+      emptyCount: 0,
       amountCents: EGG_PRICE_CENTS,
       status: "active",
       stripeSessionId: "cs_test_seed_crumb",
@@ -230,6 +240,7 @@ export function buildSeed(now = new Date()): Database {
     status: Egg["status"],
     reward: Reward,
     expiresAt: string,
+    empty = false,
   ): Egg {
     return {
       id,
@@ -239,6 +250,8 @@ export function buildSeed(now = new Date()): Database {
       lat: pos.lat,
       lng: pos.lng,
       status,
+      empty,
+      openedBy: null,
       expiresAt,
       createdAt: campaign.createdAt,
       ...reward,
@@ -259,8 +272,19 @@ export function buildSeed(now = new Date()): Database {
   }
 
   for (let i = 0; i < 115; i++) {
+    const scattered = pointInRing(DEMO_PLAYER, 80, 400, rand);
+    const nearEmpty = i === 0;
     eggs.push(
-      egg(uid(500 + i), cafe, campaigns[0], pointInRing(DEMO_PLAYER, 80, 400, rand), "active", COFFEE, activeExpiry),
+      egg(
+        uid(500 + i),
+        cafe,
+        campaigns[0],
+        nearEmpty ? EMPTY_NEAR_POS : scattered,
+        "active",
+        COFFEE,
+        activeExpiry,
+        i < SEEDED_EMPTY_COUNT,
+      ),
     );
   }
 

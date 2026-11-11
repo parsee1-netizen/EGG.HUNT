@@ -36,12 +36,14 @@ create table if not exists public.campaigns (
   reward_title text not null,
   radius_m integer not null check (radius_m > 0),
   egg_count integer not null check (egg_count > 0),
+  empty_count integer not null default 0 check (empty_count >= 0),
   amount_cents integer not null check (amount_cents >= 0),
   status text not null default 'pending_payment' check (status in ('draft', 'pending_payment', 'active')),
   stripe_session_id text,
   created_at timestamptz not null default now(),
   paid_at timestamptz,
-  egg_design jsonb
+  egg_design jsonb,
+  constraint campaigns_empty_within_batch check (empty_count <= egg_count)
 );
 
 create table if not exists public.eggs (
@@ -56,6 +58,8 @@ create table if not exists public.eggs (
   reward_detail text not null,
   reward_title text not null,
   status text not null default 'pending' check (status in ('pending', 'active', 'claimed')),
+  is_empty boolean not null default false,
+  opened_by uuid references public.profiles (id),
   expires_at timestamptz not null,
   created_at timestamptz not null default now()
 );
@@ -136,12 +140,14 @@ end;
 $$;
 
 -- Claim is atomic: the egg flips to claimed only if it is active and the player is within 50 m.
-create or replace function public.claim_egg(
+-- An empty egg is claimed without a wallet row. Prize eggs return the new claim id.
+drop function if exists public.claim_egg(uuid, uuid, double precision, double precision);
+create function public.claim_egg(
   p_egg_id uuid,
   p_player_id uuid,
   p_lat double precision,
   p_lng double precision
-) returns uuid
+) returns jsonb
 language plpgsql
 security definer
 set search_path = public
@@ -173,6 +179,11 @@ begin
     raise exception 'too_far:%', round(dist);
   end if;
 
+  if coalesce(e.is_empty, false) then
+    update public.eggs set status = 'claimed', opened_by = p_player_id where id = e.id;
+    return jsonb_build_object('outcome', 'empty', 'egg_id', e.id);
+  end if;
+
   update public.eggs set status = 'claimed' where id = e.id;
   select name into bname from public.businesses where id = e.business_id;
 
@@ -191,7 +202,7 @@ begin
         e.reward_type, e.reward_label, e.reward_detail, e.reward_title,
         e.expires_at
       ) returning id into new_id;
-      return new_id;
+      return jsonb_build_object('outcome', 'prize', 'claim_id', new_id);
     exception when unique_violation then
       -- try another code
     end;

@@ -9,7 +9,7 @@ import { formatDistance } from "@/lib/format";
 import { CATCH_RADIUS_M } from "@/lib/geo";
 import { useRearCamera } from "@/lib/use-camera";
 import { usePlayerFix } from "@/lib/use-position";
-import type { Claim, NearbyEgg } from "@/lib/types";
+import type { CatchResult, NearbyEgg } from "@/lib/types";
 
 export default function HuntPage() {
   const router = useRouter();
@@ -41,11 +41,12 @@ export default function HuntPage() {
     if (!target || !fix || busy) return;
     setBusy(true);
     try {
-      const { claim } = await api<{ claim: Claim }>("/api/claims", {
+      const caught = await api<CatchResult>("/api/claims", {
         method: "POST",
         body: JSON.stringify({ eggId: target.id, lat: fix.lat, lng: fix.lng }),
       });
-      router.push(`/crack?claim=${claim.id}`);
+      if (caught.outcome === "empty") router.push(`/crack?empty=${caught.eggId}`);
+      else router.push(`/crack?claim=${caught.claim.id}`);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Could not catch that egg.");
       setBusy(false);

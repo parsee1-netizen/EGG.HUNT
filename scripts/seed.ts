@@ -71,7 +71,7 @@ function businessesSql(rows: Business[]): string {
 }
 
 function campaignsSql(rows: Campaign[]): string {
-  return `insert into public.campaigns (id, business_id, name, reward_type, reward_label, reward_detail, reward_title, radius_m, egg_count, amount_cents, status, stripe_session_id, created_at, paid_at) values\n${values(
+  return `insert into public.campaigns (id, business_id, name, reward_type, reward_label, reward_detail, reward_title, radius_m, egg_count, empty_count, amount_cents, status, stripe_session_id, created_at, paid_at, egg_design) values\n${values(
     rows.map(
       (row) =>
         [
@@ -84,18 +84,20 @@ function campaignsSql(rows: Campaign[]): string {
           sqlString(row.rewardTitle),
           row.radiusM,
           row.eggCount,
+          row.emptyCount,
           row.amountCents,
           sqlString(row.status),
           row.stripeSessionId ? sqlString(row.stripeSessionId) : "null",
           sqlTime(row.createdAt),
           row.paidAt ? sqlTime(row.paidAt) : "null",
+          sqlJson(row.eggDesign),
         ].join(", "),
     ),
   )};`;
 }
 
 function eggsSql(rows: Egg[]): string {
-  return `insert into public.eggs (id, campaign_id, business_id, business_name, lat, lng, reward_type, reward_label, reward_detail, reward_title, status, expires_at, created_at) values\n${values(
+  return `insert into public.eggs (id, campaign_id, business_id, business_name, lat, lng, reward_type, reward_label, reward_detail, reward_title, status, expires_at, created_at, is_empty) values\n${values(
     rows.map(
       (row) =>
         [
@@ -112,6 +114,7 @@ function eggsSql(rows: Egg[]): string {
           sqlString(row.status),
           sqlTime(row.expiresAt),
           sqlTime(row.createdAt),
+          row.empty ? "true" : "false",
         ].join(", "),
     ),
   )};`;
@@ -276,11 +279,13 @@ async function pushSupabase(data: Database) {
     reward_title: row.rewardTitle,
     radius_m: row.radiusM,
     egg_count: row.eggCount,
+    empty_count: row.emptyCount,
     amount_cents: row.amountCents,
     status: row.status,
     stripe_session_id: row.stripeSessionId,
     created_at: row.createdAt,
     paid_at: row.paidAt,
+    egg_design: row.eggDesign,
   })));
   await insertChunks(client, "eggs", data.eggs.map((row) => ({
     id: row.id,
@@ -296,6 +301,7 @@ async function pushSupabase(data: Database) {
     status: row.status,
     expires_at: row.expiresAt,
     created_at: row.createdAt,
+    is_empty: row.empty,
   })));
   await insertChunks(client, "claims", data.claims.map((row) => ({
     id: row.id,

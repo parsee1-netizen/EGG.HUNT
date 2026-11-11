@@ -8,7 +8,7 @@ import MapView from "@/components/MapView";
 import { api, toast } from "@/lib/client";
 import { parseEggDesign, sameDesign, type EggDesign } from "@/lib/egg-design";
 import { formatUsd } from "@/lib/format";
-import { DROP_RADIUS_M, EGG_PRICE_CENTS, MAX_EGGS, MIN_EGGS } from "@/lib/pricing";
+import { DROP_RADIUS_M, EGG_PRICE_CENTS, MAX_EGGS, MIN_EGGS, prizeOddsPercent } from "@/lib/pricing";
 import type { Campaign, RewardType } from "@/lib/types";
 
 interface Config {
@@ -27,6 +27,7 @@ export default function HidePage() {
   const [usingBatch, setUsingBatch] = useState(false);
   const [batchDesign, setBatchDesign] = useState<EggDesign | null>(null);
   const [count, setCount] = useState(200);
+  const [emptyCount, setEmptyCount] = useState(0);
   const [rewardType, setRewardType] = useState<RewardType>("discount");
   const [detail, setDetail] = useState("Any coffee drink");
   const [busy, setBusy] = useState(false);
@@ -89,6 +90,7 @@ export default function HidePage() {
         method: "POST",
         body: JSON.stringify({
           eggCount: count,
+          emptyCount,
           rewardType,
           rewardDetail: detail,
           radiusM: DROP_RADIUS_M,
@@ -160,9 +162,29 @@ export default function HidePage() {
         max={MAX_EGGS}
         step={10}
         value={count}
-        onChange={(event) => setCount(Number(event.target.value))}
+        onChange={(event) => {
+          const next = Number(event.target.value);
+          setCount(next);
+          setEmptyCount((current) => Math.min(current, next));
+        }}
         aria-label="Number of eggs"
       />
+      <h2>
+        Prize odds <span>{prizeOddsPercent(count, emptyCount)}%</span>
+      </h2>
+      <p className="hint">
+        {count - emptyCount} with a reward · {emptyCount} empty
+      </p>
+      <input
+        type="range"
+        min={0}
+        max={count}
+        step={1}
+        value={emptyCount}
+        onChange={(event) => setEmptyCount(Number(event.target.value))}
+        aria-label="Empty eggs in this batch"
+      />
+      <p className="hint">Empty eggs are still hidden. Opening one shows an empty shell and no wallet reward.</p>
       <h2>Reward inside</h2>
       <div className="seg">
         <button type="button" className={rewardType === "discount" ? "on" : ""} onClick={() => { setRewardType("discount"); setDetail("Any coffee drink"); }}>

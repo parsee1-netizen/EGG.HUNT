@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { coerceEggDesign, parseEggDesign, resolveEggDesign } from "../egg-design";
 import { StoreError } from "../errors";
 import { CATCH_RADIUS_M, distanceM, pointInDisk } from "../geo";
-import { assertEggCount, EGG_PRICE_CENTS } from "../pricing";
+import { assertEggCount, assertEmptyCount, emptyEggIndexes, EGG_PRICE_CENTS } from "../pricing";
 import { campaignSummaries, dashboardFrom, resultsFrom } from "../stats";
 import type {
   Business,
@@ -11,6 +11,7 @@ import type {
   CreateCampaignInput,
   Egg,
   EggStore,
+  EmptyOpening,
   NearbyEgg,
   Profile,
   RedeemResult,
@@ -117,6 +118,7 @@ function campaign(row: Row): Campaign {
     rewardTitle: String(row.reward_title),
     radiusM: Number(row.radius_m),
     eggCount: Number(row.egg_count),
+    emptyCount: Number.isFinite(Number(row.empty_count)) ? Number(row.empty_count) : 0,
     amountCents: Number(row.amount_cents),
     status: row.status as Campaign["status"],
     stripeSessionId: row.stripe_session_id ? String(row.stripe_session_id) : null,
@@ -139,9 +141,21 @@ function egg(row: Row): Egg {
     rewardDetail: String(row.reward_detail),
     rewardTitle: String(row.reward_title),
     status: row.status as Egg["status"],
+    empty: Boolean(row.is_empty),
+    openedBy: row.opened_by ? String(row.opened_by) : null,
     expiresAt: String(row.expires_at),
     createdAt: String(row.created_at),
   };
+}
+
+function catchPayload(data: unknown): { outcome: "empty"; eggId: string } | { outcome: "prize"; claimId: string } {
+  if (typeof data === "string" && data) return { outcome: "prize", claimId: data };
+  if (data && typeof data === "object") {
+    const row = data as { outcome?: string; egg_id?: string; claim_id?: string };
+    if (row.outcome === "empty" && row.egg_id) return { outcome: "empty", eggId: String(row.egg_id) };
+    if (row.claim_id) return { outcome: "prize", claimId: String(row.claim_id) };
+  }
+  throw new StoreError("db", 500, "Claim finished but the result could not be read.");
 }
 
 function claim(row: Row): Claim {
@@ -339,10 +353,31 @@ export const supabaseStore: EggStore = {
       p_lng: lng,
     });
     if (error) throw mapRpc(error);
-    const claimId = String(data);
-    const found = await this.getClaim(claimId);
+    const payload = catchPayload(data);
+    if (payload.outcome === "empty") {
+      const opening = await this.getEmptyOpening(payload.eggId, playerId);
+      if (!opening) throw new StoreError("db", 500, "Empty egg was opened but could not be read back.");
+      return opening;
+    }
+    const found = await this.getClaim(payload.claimId);
     if (!found) throw new StoreError("db", 500, "Claim was created but could not be read back.");
-    return found;
+    return { outcome: "prize", claim: found };
+  },
+
+  async getEmptyOpening(eggId, playerId) {
+    const rows = await unwrap<Row[]>(admin().from("eggs").select("*").eq("id", eggId).limit(1));
+    const row = rows[0] ? egg(rows[0]) : null;
+    if (!row || !row.empty || row.status !== "claimed" || row.openedBy !== playerId) return null;
+    const maps = await designMaps([row.businessId], [row.campaignId]);
+    const opening: EmptyOpening = {
+      outcome: "empty",
+      eggId: row.id,
+      businessId: row.businessId,
+      businessName: row.businessName,
+      playerId,
+      design: resolveEggDesign(maps.businesses.get(row.businessId) ?? null, maps.campaigns.get(row.campaignId) ?? null),
+    };
+    return opening;
   },
 
   async listClaimsForPlayer(playerId) {
@@ -377,8 +412,10 @@ export const supabaseStore: EggStore = {
   },
 
   async createCampaign(input: CreateCampaignInput) {
+    const emptyCount = input.emptyCount ?? 0;
     try {
       assertEggCount(input.eggCount);
+      assertEmptyCount(emptyCount, input.eggCount);
     } catch (err) {
       throw new StoreError("bad_count", 400, err instanceof Error ? err.message : "Bad egg count.");
     }
@@ -398,6 +435,7 @@ export const supabaseStore: EggStore = {
           reward_title: input.rewardTitle,
           radius_m: radiusM,
           egg_count: input.eggCount,
+          empty_count: emptyCount,
           amount_cents: input.eggCount * EGG_PRICE_CENTS,
           status: "pending_payment",
           egg_design: eggDesign,
@@ -406,7 +444,8 @@ export const supabaseStore: EggStore = {
     );
     const created = campaign(inserted[0]);
     const expires = new Date(Date.now() + 14 * 86_400_000).toISOString();
-    const eggRows = Array.from({ length: input.eggCount }, () => {
+    const emptyAt = new Set(emptyEggIndexes(input.eggCount, emptyCount));
+    const eggRows = Array.from({ length: input.eggCount }, (_, index) => {
       const pos = pointInDisk(place.lat, place.lng, radiusM, 20, Math.random);
       return {
         campaign_id: created.id,
@@ -419,6 +458,7 @@ export const supabaseStore: EggStore = {
         reward_detail: input.rewardDetail,
         reward_title: input.rewardTitle,
         status: "pending",
+        is_empty: emptyAt.has(index),
         expires_at: expires,
       };
     });

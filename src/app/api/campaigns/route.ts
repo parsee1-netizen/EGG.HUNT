@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     const session = await requireBusiness();
     const body = (await req.json()) as {
       eggCount?: number;
+      emptyCount?: number;
       rewardType?: RewardType;
       rewardDetail?: string;
       radiusM?: number;
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
       name: campaignName(),
       radiusM: Number(body.radiusM) || DROP_RADIUS_M,
       eggCount: Number(body.eggCount),
+      emptyCount: body.emptyCount == null ? 0 : Number(body.emptyCount),
       eggDesign: body.eggDesign == null ? null : parseEggDesign(body.eggDesign),
       ...reward,
     });
